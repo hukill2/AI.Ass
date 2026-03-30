@@ -1,0 +1,23 @@
+{
+  "ollama_host": "http://localhost:11434",
+  "model": "mistral",
+  "workspace": "C:\\AI.Ass\\data\\workspace",
+  "log_dir": "C:\\AI.Ass\\logs",
+  "editor": "code",
+  "timeout": 30,
+  "require_approval": true,
+  "mistral_options": {
+    "num_predict": 128,
+    "temperature": 0.7,
+    "top_p": 0.9
+  },
+  "speech_settings": {
+    "use_vosk": true,
+    "pause_threshold": 0.8,
+    "phrase_threshold": 0.3,
+    "non_speaking_duration": 0.5,
+    "phrase_time_limit": 12,
+    "enable_interrupts": false,
+    "remove_fillers": true
+  }
+}

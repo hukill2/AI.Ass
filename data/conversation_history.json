@@ -1,0 +1,21 @@
+{
+  "saved_at": "2026-03-29T22:22:59.706925",
+  "exchanges": [
+    {
+      "timestamp": "2026-03-29T22:20:52.926786",
+      "user": "hi how are you",
+      "assistant": "Hello there! I'm just a computer program, but I'm here to help make things easier for you. How can I assist you today?"
+    },
+    {
+      "timestamp": "2026-03-29T22:21:45.242284",
+      "user": "what did we just talk about",
+      "assistant": "On 2026-03-29 you said: \"hi how are you\""
+    },
+    {
+      "timestamp": "2026-03-29T22:22:59.706629",
+      "user": "wow",
+      "assistant": "Quite impressive, isn't it! I've got a pretty good memory for a computer. How can I be of service to you now?"
+    }
+  ],
+  "preferences": {}
+}
