@@ -1,0 +1,12 @@
+{
+  "name": "ai-ass",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first AI assistant mirror workspace",
+  "scripts": {
+    "build:mirror": "node scripts/build-reviews-approvals-mirror-v1.js",
+    "validate:mirror": "node scripts/validate-reviews-approvals-mirror-v1.js",
+    "status:mirror": "node scripts/sync-status-report-v1.js",
+    "pull:notion:stub": "node scripts/pull-notion-reviews-approvals-v1.js"
+  }
+}

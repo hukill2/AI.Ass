@@ -1,0 +1,67 @@
+{
+  "export_version": "v1",
+  "source": "local_reviews_approvals_source",
+  "exported_at": "2026-03-31T16:34:03.559Z",
+  "items": [
+    {
+      "task_id": "test-001",
+      "title": "Test Approval Flow",
+      "status": "Pending Review",
+      "decision": null,
+      "risk": "Low",
+      "route_target": "Local",
+      "needs_approval": true,
+      "execution_allowed": false,
+      "trigger_reason": "Validate review workflow",
+      "operator_notes": "",
+      "revised_instructions": "",
+      "sync_status": "Not Synced",
+      "notion_page_id": "3340f028-0c2b-814e-9ae8-c17f49136044",
+      "notion_url": "https://www.notion.so/3340f0280c2b814e9ae8c17f49136044",
+      "created_at": "2026-03-31T15:46:49.214Z",
+      "updated_at": "2026-03-31T15:46:49.214Z",
+      "body": {
+        "summary": "This entry proves that the Reviews / Approvals workflow can capture an item that requires approval. The local assistant should treat this as a low-risk request, create a summary, and wait for the operator to approve before acting.",
+        "full_context": "",
+        "proposed_action": "",
+        "why_this_was_triggered": "",
+        "risk_assessment": "",
+        "suggested_route": "",
+        "affected_components": "",
+        "operator_notes": "",
+        "revised_instructions": "",
+        "final_outcome": ""
+      }
+    },
+    {
+      "task_id": "test-002",
+      "title": "Test Modify Flow",
+      "status": "Pending Review",
+      "decision": null,
+      "risk": "Medium",
+      "route_target": "Codex",
+      "needs_approval": true,
+      "execution_allowed": false,
+      "trigger_reason": "Validate modify workflow",
+      "operator_notes": "",
+      "revised_instructions": "Limit changes to routing docs only. Do not change approval rules.",
+      "sync_status": "Not Synced",
+      "notion_page_id": "3340f028-0c2b-81b3-877b-f7c54bad081f",
+      "notion_url": "https://www.notion.so/3340f0280c2b81b3877bf7c54bad081f",
+      "created_at": "2026-03-31T15:56:02.563Z",
+      "updated_at": "2026-03-31T15:56:14.179Z",
+      "body": {
+        "summary": "",
+        "full_context": "",
+        "proposed_action": "",
+        "why_this_was_triggered": "",
+        "risk_assessment": "",
+        "suggested_route": "",
+        "affected_components": "",
+        "operator_notes": "",
+        "revised_instructions": "Limit changes to routing docs only. Do not change approval rules.",
+        "final_outcome": "This entry is for testing the Modify decision path."
+      }
+    }
+  ]
+}
