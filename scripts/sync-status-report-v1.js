@@ -31,12 +31,19 @@ const validator = spawnSync('node', [validatorScript], {
 });
 const validationPassed = validator.status === 0;
 
-const itemsMissingFields = [];
+const requiredFields = ['task_id', 'title', 'status', 'route_target'];
+const missingFieldDetails = [];
 if (Array.isArray(exportPayload.items)) {
   exportPayload.items.forEach((item, index) => {
-    ['task_id', 'title', 'status', 'route_target'].forEach((field) => {
+    requiredFields.forEach((field) => {
       if (!item[field]) {
-        itemsMissingFields.push(`item ${index} missing ${field}`);
+        missingFieldDetails.push({
+          index,
+          field,
+          title: item.title || '<missing title>',
+          task_id: item.task_id || '<missing task_id>',
+          notion_page_id: item.notion_page_id || '<missing page id>',
+        });
       }
     });
   });
@@ -49,12 +56,16 @@ console.log(`Export version: ${exportPayload.export_version || 'unknown'}`);
 console.log(`Source: ${exportPayload.source || 'unknown'}`);
 console.log(`Exported at: ${exportPayload.exported_at || 'unknown'}`);
 console.log(`Validation: ${validationPassed ? 'passed' : 'failed'}`);
-if (itemsMissingFields.length > 0) {
+if (missingFieldDetails.length > 0) {
   console.log('Items missing required fields:');
-  itemsMissingFields.forEach((msg) => console.log(`  - ${msg}`));
+  missingFieldDetails.forEach((detail) => {
+    console.log(
+      `  - ${detail.field} missing for '${detail.title}' (task_id: ${detail.task_id}, notion_page_id: ${detail.notion_page_id})`
+    );
+  });
 }
 console.log('-----------------------------------------');
 
-if (!validationPassed || !Array.isArray(exportPayload.items) || itemsMissingFields.length > 0) {
+if (!validationPassed || !Array.isArray(exportPayload.items) || missingFieldDetails.length > 0) {
   process.exit(1);
 }
