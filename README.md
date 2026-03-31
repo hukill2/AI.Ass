@@ -12,5 +12,6 @@ This repository is a local-first AI assistant system.
 - Keep real secrets in a local .env file that is never committed; use .env.example as the template.
 - .env.example lists the required keys for the Reviews / Approvals pull.
 - Set Sync Status = Ignore on template/example rows so the pull/export pipeline skips them.
-- Run npm run pull:notion (after configuring NOTION_API_KEY and NOTION_REVIEWS_DATABASE_ID) to pull the Reviews / Approvals database into mirror/reviews-approvals-source.v1.json, rebuild the mirror, and run the status check.
+- Run `npm run pull:notion` (after configuring NOTION_API_KEY and NOTION_REVIEWS_DATABASE_ID) to pull the Reviews / Approvals database into `mirror/reviews-approvals-source.v1.json`, rebuild the mirror, and run the status check.
+- Run `npm run pull:architecture` (after configuring NOTION_API_KEY and NOTION_AI_OS_PAGE_ID) to pull the architecture/reference pages into `mirror/architecture-pages.v1.json`, run the architecture validator, and run the status report.
 
