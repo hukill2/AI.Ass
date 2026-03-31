@@ -12,11 +12,14 @@
     "validate:architecture": "node scripts/validate-architecture-pages-v1.js",
     "status:architecture": "node scripts/architecture-status-report-v1.js",
     "pull:architecture": "node scripts/pull-notion-architecture-pages-v1.js",
+    "quality:architecture": "node scripts/architecture-pages-quality-report-v1.js",
+    "refresh:architecture": "node scripts/architecture-pages-refresh-v1.js",
     "refresh:reviews": "node scripts/reviews-approvals-refresh-v1.js",
     "validate:learning": "node scripts/validate-learning-records-v1.js",
     "status:learning": "node scripts/learning-status-report-v1.js",
     "status:routing": "node scripts/routing-status-report-v1.js",
     "validate:routing": "node scripts/validate-routing-decisions-v1.js",
-    "status:all": "node scripts/status-all-v1.js"
+    "status:all": "node scripts/status-all-v1.js",
+    "refresh:notion": "node scripts/refresh-notion-v1.js"
   }
 }
