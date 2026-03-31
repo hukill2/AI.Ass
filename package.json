@@ -7,6 +7,11 @@
     "build:mirror": "node scripts/build-reviews-approvals-mirror-v1.js",
     "validate:mirror": "node scripts/validate-reviews-approvals-mirror-v1.js",
     "status:mirror": "node scripts/sync-status-report-v1.js",
-    "pull:notion:stub": "node scripts/pull-notion-reviews-approvals-v1.js"
+    "pull:notion:stub": "node scripts/pull-notion-reviews-approvals-v1.js",
+    "validate:learning": "node scripts/validate-learning-records-v1.js",
+    "status:learning": "node scripts/learning-status-report-v1.js",
+    "status:routing": "node scripts/routing-status-report-v1.js",
+    "validate:routing": "node scripts/validate-routing-decisions-v1.js",
+    "status:all": "node scripts/status-all-v1.js"
   }
 }

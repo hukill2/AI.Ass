@@ -1,0 +1,37 @@
+{
+  "version": "v1",
+  "decisions": [
+    {
+      "task_id": "setup-notion-os",
+      "classification": "architecture",
+      "risk": "Medium",
+      "recommended_route": "Claude",
+      "requires_approval": false,
+      "reasoning": "Documenting the operating-system hub and approvals workflow benefits from a reasoning-heavy overview though the work was executed locally.",
+      "notes": "Built docs, database, and templates without external automation yet.",
+      "based_on": {
+        "code_heavy": false,
+        "reasoning_heavy": true,
+        "ambiguous": false,
+        "multi_file": false,
+        "prior_pattern_used": false
+      }
+    },
+    {
+      "task_id": "mirror-pipeline",
+      "classification": "implementation",
+      "risk": "Low",
+      "recommended_route": "Local",
+      "requires_approval": false,
+      "reasoning": "Establishing the mirror source/build/validate/status flow is implementation-focused with minimal ambiguity.",
+      "notes": "No Notion pull yet; working with local JSON and Node scripts.",
+      "based_on": {
+        "code_heavy": true,
+        "reasoning_heavy": false,
+        "ambiguous": false,
+        "multi_file": true,
+        "prior_pattern_used": true
+      }
+    }
+  ]
+}
