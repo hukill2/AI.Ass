@@ -97,9 +97,13 @@ const targetPath = path.resolve(__dirname, '..', targetFiles[0]);
 const existingWrites = execLogs.filter((log) => log.execution_id === executionId && log.executor === 'qwen-write');
 const lastSuccess = existingWrites.find((log) => log.execution_result === 'success');
 const targetExists = fs.existsSync(targetPath);
-if (lastSuccess && targetExists) {
-  console.error('A successful qwen-write log already exists and the target file is still present.');
+const lastVerified = lastSuccess && lastSuccess.verification_passed;
+if (lastSuccess && targetExists && lastVerified) {
+  console.error('A successful, verified qwen-write log already exists and the target file is still present.');
   process.exit(1);
+}
+if (lastSuccess && targetExists && !lastVerified) {
+  console.log('Previous success log missing verification metadata; rerun allowed.');
 }
 if (lastSuccess && !targetExists) {
   console.log('Previous success log found but target file missing; rerun allowed.');
@@ -111,6 +115,10 @@ let fileWriteAttempted = false;
 let fileWriteSucceeded = false;
 let fileCreated = false;
 let fileModified = false;
+let verificationAttempted = false;
+let verificationPassed = false;
+let verificationNotes = '';
+let verificationCommand = '';
 if (executionResult === 'no_change') {
     const instruction = [
       'You are executing the write-enabled AI.Ass assistant for scripts/validate-json-lane.js.',
@@ -144,17 +152,37 @@ if (executionResult === 'no_change') {
       const previewText = snippet(stdout);
       notes = `Write failed quality gate (${quality.reason}). Preview: ${previewText || '<empty>'}`;
     } else {
-      const targetPath = path.resolve(__dirname, '..', targetFiles[0]);
-      const existedBefore = fs.existsSync(targetPath);
-      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      const writtenPath = path.resolve(__dirname, '..', targetFiles[0]);
+      const existedBefore = fs.existsSync(writtenPath);
+      fs.mkdirSync(path.dirname(writtenPath), { recursive: true });
       fileWriteAttempted = true;
-      fs.writeFileSync(targetPath, stdout + '\n', 'utf8');
+      fs.writeFileSync(writtenPath, stdout + '\n', 'utf8');
       filesChanged = [targetFiles[0]];
       writes = true;
       fileWriteSucceeded = true;
       fileCreated = !existedBefore;
       fileModified = existedBefore;
       notes = `Wrote ${targetFiles[0]} with generated output.`;
+      if (targetFiles[0].endsWith('.js')) {
+        verificationAttempted = true;
+        const verifyCmd = ['node', '--check', writtenPath];
+        verificationCommand = verifyCmd.join(' ');
+        const verifyResult = spawnSync(verifyCmd[0], verifyCmd.slice(1), {
+          encoding: 'utf8',
+          timeout: 5000,
+        });
+        if (verifyResult.error) {
+          verificationPassed = false;
+          verificationNotes = `Verification failed: ${verifyResult.error.message}`;
+        } else if (verifyResult.status !== 0) {
+          verificationPassed = false;
+          verificationNotes = `Verification failed: ${verifyResult.stderr || verifyResult.stdout || '<no output>'}`;
+        } else {
+          verificationPassed = true;
+          verificationNotes = 'Syntax check passed.';
+        }
+        notes += ` Verification ${verificationPassed ? 'passed' : 'failed'}${verificationNotes ? ` (${verificationNotes})` : ''}.`;
+      }
     }
   }
 }
@@ -170,6 +198,10 @@ const logEntry = {
   files_changed: filesChanged,
   notes,
   created_at: new Date().toISOString(),
+  verification_attempted: verificationAttempted,
+  verification_passed: verificationPassed,
+  verification_notes: verificationNotes,
+  verification_command: verificationCommand,
 };
 
 execLogs.push(logEntry);
