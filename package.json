@@ -62,6 +62,7 @@
     "execute:codex-readonly": "node scripts/execute-codex-readonly-v1.js",
     "list:readonly-successful": "node scripts/list-readonly-successful-executions-v1.js",
     "list:write-eligible": "node scripts/list-write-eligible-executions-v1.js",
+    "list:write-successful": "node scripts/list-write-successful-executions-v1.js",
     "validate:narrowed-followups": "node scripts/validate-narrowed-followup-tasks-v1.js",
     "list:narrowed-followups": "node scripts/list-narrowed-followup-tasks-v1.js",
     "promote:followup": "node scripts/promote-followup-to-task-input-v1.js"
