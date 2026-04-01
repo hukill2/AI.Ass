@@ -22,6 +22,17 @@
       "operator_notes": "Explicit operator approval pending execution layer only.",
       "created_at": "2026-04-01T04:03:47.270Z",
       "updated_at": "2026-04-01T04:13:39.373Z"
+    },
+    {
+      "review_id": "review-1775022185635",
+      "decision_id": "dec-1775022183358",
+      "task_id": "task-001",
+      "classification": "review-required",
+      "recommended_action": "review-before-execution",
+      "operator_status": "approved",
+      "operator_notes": "Approved narrowed write-safe follow-up for new execution path.",
+      "created_at": "2026-04-01T05:43:05.635Z",
+      "updated_at": "2026-04-01T05:47:09.030Z"
     }
   ]
 }

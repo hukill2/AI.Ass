@@ -1,0 +1,49 @@
+{
+  "version": "v1",
+  "previews": [
+    {
+      "preview_id": "preview-1775018670546",
+      "handoff_id": "handoff-1775018229508",
+      "payload_id": "payload-1775017915696",
+      "execution_id": "exec-1775017171168-1",
+      "decision_id": "dec-1775016225064",
+      "task_id": "task-001",
+      "executor_target": "codex",
+      "prompt_text": "Follow the local AI.Ass instructions and execute: Implement the step that reads mirrored files and prepares context for routing.",
+      "files_to_create_or_update": [
+        "runtime/read_mirrored_files.js"
+      ],
+      "risks_or_guardrails": [
+        {
+          "risk": "File integrity",
+          "guardrail": "Ensure that only trusted sources are read from the mirror to prevent malicious or corrupted data."
+        },
+        {
+          "risk": "Performance impact",
+          "guardrail": "Optimize file reading and processing to avoid excessive resource consumption, especially if the mirrored files are large."
+        }
+      ],
+      "operator_notes": "Explicit operator approval pending execution layer only.",
+      "prepared_at": "2026-04-01T04:44:30.546Z"
+    },
+    {
+      "preview_id": "preview-1775053658392",
+      "handoff_id": "handoff-1775053648096",
+      "payload_id": "payload-1775053635511",
+      "execution_id": "exec-1775022550114-1",
+      "decision_id": "dec-1775022183358",
+      "task_id": "task-001",
+      "executor_target": "codex",
+      "prompt_text": "Follow the local AI.Ass instructions and execute: Create a validator script for the existing JSON lane.",
+      "files_to_create_or_update": [
+        "scripts/validate-json-lane.js"
+      ],
+      "risks_or_guardrails": [
+        "Ensure that the validator script does not introduce new vulnerabilities or bugs.",
+        "The validation logic should be thoroughly tested to cover all possible edge cases."
+      ],
+      "operator_notes": "Approved narrowed write-safe follow-up for new execution path.",
+      "prepared_at": "2026-04-01T14:27:38.392Z"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "version": "v1",
+  "tasks": [
+    {
+      "followup_id": "followup-1775021287314",
+      "source_execution_id": "exec-1775017171168-1",
+      "source_review_id": "review-1775016227271",
+      "source_decision_id": "dec-1775016225064",
+      "task_id": "task-001",
+      "narrowed_task_summary": "Add one validator script for a single existing JSON lane.",
+      "target_files": [
+        "scripts/validate-example-v1.js"
+      ],
+      "reason_for_narrowing": "narrowed for write-safe v1 scope",
+      "operator_notes": "",
+      "created_at": "2026-04-01T05:28:07.314Z"
+    }
+  ]
+}

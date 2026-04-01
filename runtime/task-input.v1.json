@@ -1,4 +1,6 @@
 {
   "task_id": "task-001",
-  "task_summary": "Implement a small local assistant step that reads mirrored files and prepares context for routing."
+  "task_summary": "Add one validator script for a single existing JSON lane.",
+  "source_followup_id": "followup-1775021287314",
+  "source_execution_id": "exec-1775017171168-1"
 }
