@@ -46,6 +46,7 @@ function isAllowed(file) {
 
 const CODE_INDICATORS = ['const', 'let', 'function', 'module.exports', 'json.parse', 'try {', 'require('];
 const HELP_PHRASES = ["i'd be happy to help", 'i need more information', 'please provide', 'please clarify', 'could you provide', 'let me know', 'do you have'];
+const FIDELITY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'codex', 'validation', 'packet'];
 function evaluateQuality(text) {
   const lower = (text || '').toLowerCase();
   const indicator = CODE_INDICATORS.find((ind) => lower.includes(ind));
@@ -64,6 +65,19 @@ function evaluateQuality(text) {
 
 function snippet(text) {
   return (text || '').split(/\r?\n/).slice(0, 3).join(' ').trim();
+}
+
+function checkTaskFidelity(text, targetFile) {
+  const lower = (text || '').toLowerCase();
+  const containsTarget = targetFile && lower.includes(path.basename(targetFile).toLowerCase());
+  const hasDomain = FIDELITY_KEYWORDS.some((kw) => lower.includes(kw));
+  if (!containsTarget) {
+    return { pass: false, reason: 'target name not mentioned' };
+  }
+  if (!hasDomain) {
+    return { pass: false, reason: 'missing lane-specific keywords' };
+  }
+  return { pass: true };
 }
 
 let executionResult = 'no_change';
@@ -98,12 +112,24 @@ const existingWrites = execLogs.filter((log) => log.execution_id === executionId
 const lastSuccess = existingWrites.find((log) => log.execution_result === 'success');
 const targetExists = fs.existsSync(targetPath);
 const lastVerified = lastSuccess && lastSuccess.verification_passed;
-if (lastSuccess && targetExists && lastVerified) {
-  console.error('A successful, verified qwen-write log already exists and the target file is still present.');
+let existingFidelityPass = false;
+if (targetExists) {
+  try {
+    const existingContent = fs.readFileSync(targetPath, 'utf8');
+    existingFidelityPass = checkTaskFidelity(existingContent, targetFiles[0]).pass;
+  } catch (err) {
+    existingFidelityPass = false;
+  }
+}
+if (lastSuccess && targetExists && lastVerified && existingFidelityPass) {
+  console.error('A successful, verified qwen-write log already exists and the target file already matches the current task intent.');
   process.exit(1);
 }
-if (lastSuccess && targetExists && !lastVerified) {
-  console.log('Previous success log missing verification metadata; rerun allowed.');
+if (lastSuccess && targetExists && (!lastVerified || !existingFidelityPass)) {
+  console.log('Previous success log exists but verification or task fidelity is missing; corrective rerun allowed.');
+}
+if (lastSuccess && !targetExists) {
+  console.log('Previous success log found but target file missing; rerun allowed.');
 }
 if (lastSuccess && !targetExists) {
   console.log('Previous success log found but target file missing; rerun allowed.');
@@ -119,22 +145,23 @@ let verificationAttempted = false;
 let verificationPassed = false;
 let verificationNotes = '';
 let verificationCommand = '';
+let failureStage = '';
 if (executionResult === 'no_change') {
-    const instruction = [
-      'You are executing the write-enabled AI.Ass assistant for scripts/validate-json-lane.js.',
-      'Return ONLY the final contents of the file.',
-      'No markdown, no code fences, no explanations, no introductions, no follow-up questions, no bullet points, no numbered lists.',
-      'Produce a Node.js script that:',
-      '- accepts a JSON file path from argv',
-      '- reads and parses the file,',
-      '- prints "valid" if parsing succeeds, otherwise prints the parsing or read error,',
-      '- exits with a non-zero status when the file is invalid or cannot be read.',
-      'Ensure the output is valid JavaScript.'
-    ].join(' ');
-    const fullPrompt = `${instruction}\n\n${preview.prompt_text}`;
-    const spawnResult = spawnSync('ollama', ['run', 'qwen2.5-coder:7b'], { encoding: 'utf8', timeout: 120000, input: fullPrompt });
-    const rawOutput = (spawnResult.stdout || '').trim();
-    const stdout = rawOutput.replace(/```(?:[a-z]*\n)?([\s\S]*?)```/gi, '$1').trim();
+  const instruction = [
+    'You are executing the write-enabled AI.Ass assistant for scripts/validate-json-lane.js.',
+    'Return ONLY the final contents of the file.',
+    'No markdown, no code fences, no explanations, no introductions, no follow-up questions, no bullet points, no numbered lists.',
+    'Produce a Node.js script that:',
+    '- accepts a JSON file path from argv',
+    '- reads and parses the file,',
+    '- prints "valid" if parsing succeeds, otherwise prints the parsing or read error,',
+    '- exits with a non-zero status when the file is invalid or cannot be read.',
+    'Ensure the output is valid JavaScript.',
+  ].join(' ');
+  const fullPrompt = `${instruction}\n\n${preview.prompt_text}`;
+  const spawnResult = spawnSync('ollama', ['run', 'qwen2.5-coder:7b'], { encoding: 'utf8', timeout: 120000, input: fullPrompt });
+  const rawOutput = (spawnResult.stdout || '').trim();
+  const stdout = rawOutput.replace(/```(?:[a-z]*\n)?([\s\S]*?)```/gi, '$1').trim();
   const stderr = (spawnResult.stderr || '').trim();
   if (spawnResult.error) {
     executionResult = 'failed';
@@ -149,39 +176,55 @@ if (executionResult === 'no_change') {
     const quality = evaluateQuality(stdout);
     if (!quality.pass) {
       executionResult = 'failed';
+      failureStage = 'quality gate';
       const previewText = snippet(stdout);
       notes = `Write failed quality gate (${quality.reason}). Preview: ${previewText || '<empty>'}`;
     } else {
       const writtenPath = path.resolve(__dirname, '..', targetFiles[0]);
       const existedBefore = fs.existsSync(writtenPath);
-      fs.mkdirSync(path.dirname(writtenPath), { recursive: true });
-      fileWriteAttempted = true;
-      fs.writeFileSync(writtenPath, stdout + '\n', 'utf8');
-      filesChanged = [targetFiles[0]];
-      writes = true;
-      fileWriteSucceeded = true;
-      fileCreated = !existedBefore;
-      fileModified = existedBefore;
-      notes = `Wrote ${targetFiles[0]} with generated output.`;
-      if (targetFiles[0].endsWith('.js')) {
-        verificationAttempted = true;
-        const verifyCmd = ['node', '--check', writtenPath];
-        verificationCommand = verifyCmd.join(' ');
-        const verifyResult = spawnSync(verifyCmd[0], verifyCmd.slice(1), {
-          encoding: 'utf8',
-          timeout: 5000,
-        });
-        if (verifyResult.error) {
-          verificationPassed = false;
-          verificationNotes = `Verification failed: ${verifyResult.error.message}`;
-        } else if (verifyResult.status !== 0) {
-          verificationPassed = false;
-          verificationNotes = `Verification failed: ${verifyResult.stderr || verifyResult.stdout || '<no output>'}`;
-        } else {
-          verificationPassed = true;
-          verificationNotes = 'Syntax check passed.';
+      let skipWrite = false;
+      if (existedBefore) {
+        const fidelity = checkTaskFidelity(stdout, targetFiles[0]);
+        if (!fidelity.pass) {
+          executionResult = 'failed';
+          failureStage = 'task fidelity gate';
+          const previewText = snippet(stdout);
+          notes = `Write failed task fidelity (${fidelity.reason}). Preview: ${previewText || '<empty>'}`;
+          skipWrite = true;
         }
-        notes += ` Verification ${verificationPassed ? 'passed' : 'failed'}${verificationNotes ? ` (${verificationNotes})` : ''}.`;
+      }
+      if (!skipWrite) {
+        fs.mkdirSync(path.dirname(writtenPath), { recursive: true });
+        fileWriteAttempted = true;
+        fs.writeFileSync(writtenPath, stdout + '\n', 'utf8');
+        filesChanged = [targetFiles[0]];
+        writes = true;
+        fileWriteSucceeded = true;
+        fileCreated = !existedBefore;
+        fileModified = existedBefore;
+        notes = `Wrote ${targetFiles[0]} with generated output.`;
+        if (targetFiles[0].endsWith('.js')) {
+          verificationAttempted = true;
+          const verifyCmd = ['node', '--check', writtenPath];
+          verificationCommand = verifyCmd.join(' ');
+          const verifyResult = spawnSync(verifyCmd[0], verifyCmd.slice(1), {
+            encoding: 'utf8',
+            timeout: 5000,
+          });
+          if (verifyResult.error) {
+            verificationPassed = false;
+            verificationNotes = `Verification failed: ${verifyResult.error.message}`;
+            failureStage = 'syntax verification';
+          } else if (verifyResult.status !== 0) {
+            verificationPassed = false;
+            verificationNotes = `Verification failed: ${verifyResult.stderr || verifyResult.stdout || '<no output>'}`;
+            failureStage = 'syntax verification';
+          } else {
+            verificationPassed = true;
+            verificationNotes = 'Syntax check passed.';
+          }
+          notes += ` Verification ${verificationPassed ? 'passed' : 'failed'}${verificationNotes ? ` (${verificationNotes})` : ''}.`;
+        }
       }
     }
   }

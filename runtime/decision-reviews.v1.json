@@ -33,6 +33,39 @@
       "operator_notes": "Approved narrowed write-safe follow-up for new execution path.",
       "created_at": "2026-04-01T05:43:05.635Z",
       "updated_at": "2026-04-01T05:47:09.030Z"
+    },
+    {
+      "review_id": "review-1775059561791",
+      "decision_id": "dec-1775059559133",
+      "task_id": "task-001",
+      "classification": "approval-required",
+      "recommended_action": "explicit-approval-required",
+      "operator_status": "approved",
+      "operator_notes": "Approved second narrow write-safe follow-up for codex handoff validator.",
+      "created_at": "2026-04-01T16:06:01.791Z",
+      "updated_at": "2026-04-01T16:18:35.145Z"
+    },
+    {
+      "review_id": "review-1775060902715",
+      "decision_id": "dec-1775060900314",
+      "task_id": "task-001",
+      "classification": "informational",
+      "recommended_action": "store-only",
+      "operator_status": "pending",
+      "operator_notes": "",
+      "created_at": "2026-04-01T16:28:22.714Z",
+      "updated_at": "2026-04-01T16:28:22.714Z"
+    },
+    {
+      "review_id": "review-1775061114375",
+      "decision_id": "dec-1775061111940",
+      "task_id": "task-001",
+      "classification": "approval-required",
+      "recommended_action": "explicit-approval-required",
+      "operator_status": "approved",
+      "operator_notes": "Approved second concrete validator enhancement.",
+      "created_at": "2026-04-01T16:31:54.375Z",
+      "updated_at": "2026-04-01T16:40:07.792Z"
     }
   ]
 }

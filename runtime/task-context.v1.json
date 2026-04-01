@@ -1,28 +1,28 @@
 {
   "task_id": "task-001",
-  "task_summary": "Add one validator script for a single existing JSON lane.",
+  "task_summary": "Update scripts/validate-codex-handoff-packets-v1.js to require executor_target, payload_id, and execution_id in each handoff packet.",
   "relevant_routing_examples": [
-    {
-      "task_id": "setup-notion-os",
-      "classification": "architecture",
-      "reason": "Documenting the operating-system hub and approvals workflow benefits from a reasoning-heavy overview though the work was executed locally."
-    },
     {
       "task_id": "mirror-pipeline",
       "classification": "implementation",
       "reason": "Establishing the mirror source/build/validate/status flow is implementation-focused with minimal ambiguity."
+    },
+    {
+      "task_id": "setup-notion-os",
+      "classification": "architecture",
+      "reason": "Documenting the operating-system hub and approvals workflow benefits from a reasoning-heavy overview though the work was executed locally."
     }
   ],
   "relevant_learning_records": [
     {
-      "record_id": "lr-001",
-      "task_id": "setup-notion-os",
-      "summary": "Documented operating-system principles, guardrails, Mirror schema, and approval database with template. Keep new governance docs grouped under a single hub for visibility. Notion workspace now hosts the AI Assistant Operating System hub, child pages, and Reviews / Approvals database."
-    },
-    {
       "record_id": "lr-002",
       "task_id": "mirror-pipeline",
       "summary": "Created source + export JSON seeds, build/validate/status scripts, and npm scripts to invoke them. Keep source, build, and validation steps chained so exports stay fresh before adding live sync. Local source file, build script, validator, and status report now exist and operate end-to-end for the Reviews / Approvals mirror."
+    },
+    {
+      "record_id": "lr-001",
+      "task_id": "setup-notion-os",
+      "summary": "Documented operating-system principles, guardrails, Mirror schema, and approval database with template. Keep new governance docs grouped under a single hub for visibility. Notion workspace now hosts the AI Assistant Operating System hub, child pages, and Reviews / Approvals database."
     }
   ],
   "relevant_review_state": [
@@ -39,9 +39,9 @@
       "content": "Purpose\nThis workspace defines how the local-first AI assistant system should operate. It is the human-readable source of truth for architecture, guardrails, routing behavior, approval flow, and learning rules.\nThe goal of the system is to let a local AI assistant handle as much useful work as possible while remaining controlled, reviewable, and safe. The assistant should attempt work locally first, escalate when appropriate, and improve over time by learning from prior tasks and outcomes.\nSystem Rules\n- Notion is the human-readable source of truth.\n- A mirrored JSON library is the machine-readable layer.\n- The local assistant attempts work locally first.\n- Claude handles reasoning-heavy, conceptual, ambiguous, or architectural tasks.\n- Codex handles implementation-heavy, code-focused, multi-file, repo-aware tasks.\n- Telegram exists only to send notifications that link back into Notion.\n- Notion is where approvals and modifications happen.\n- The system learns from prior tasks, results, approvals, denials, and corrections.\n- Sensitive or high-risk actions require approval.\nCore Principles\n- Local-first execution is preferred whenever practical.\n- Human-readable architecture lives in Notion.\n- Machine-readable architecture will be mirrored in JSON.\n- Sensitive or higher-risk actions require approval.\n- Telegram is used to notify and direct attention.\n- Notion is the place where review and decisions happen.\n- Claude and Codex are escalation targets, not the default operator.\n- The system should learn from successful and unsuccessful task outcomes.\nSystem Summary\nThis system is made of several layers:\nHuman-readable layer\nNotion stores architecture docs, rules, workflows, constraints, and review pages, so every operator can see the current plan.\nMachine-readable layer\nA mirrored JSON library stores structured versions of architecture, task history, routing rules, approvals, and learned patterns so automation can stay in sync.\nExecution layer\nA local AI model acts as the primary assistant. It interprets requests, checks rules, attempts work locally, and decides whether to escalate.\nEscalation layer\nClaude or Codex may be used depending on the type of issue:\n- Claude for reasoning-heavy or ambiguous work\n- Codex for implementation-heavy coding work\nApproval layer\nWhen approval is needed, the system creates a Notion review page and sends a Telegram notification with a short summary and a link to that page.\nLearning layer\nThe system stores prior tasks, decisions, results, corrections, and outcomes so future tasks can be handled better.\nIntended Outcome\nThe result should be a supervised local AI workflow that is:\n- understandable\n- reviewable\n- safe\n- structured\n- capable of improving with use."
     },
     {
-      "page_id": "3340f028-0c2b-81d3-967f-fdbd82cfc2f9",
-      "title": "Routing Rules",
-      "content": "Purpose\nRouting rules determine whether the local assistant should handle a task itself or escalate to Claude or Codex.\nDefault Strategy\nUse local-first execution. Escalate only when the task exceeds local capability, confidence is low, or the task clearly matches a better specialist.\nRoute to Local Assistant\nUse the local model when the task is:\n- simple or moderate in complexity\n- mostly classification, summarization, drafting, or organization\n- strongly supported by existing architecture and history\n- low-risk and local context is sufficient\nRoute to Claude\nUse Claude when the task is:\n- reasoning-heavy\n- ambiguous\n- conceptual\n- architectural\n- exploratory\n- asking for a second opinion\n- better served by strong analysis than direct code editing\nExamples:\n- architecture tradeoffs\n- complex planning\n- prompt logic critique\n- analysis of unclear issues\n- decomposing a hard problem\nRoute to Codex\nUse Codex when the task is:\n- implementation-heavy\n- code-focused\n- patch-oriented\n- multi-file\n- repository-aware\n- better solved by a coding agent than a reasoning model\nExamples:\n- writing or editing code\n- applying repo-safe changes\n- implementing a feature\n- fixing code defects\n- working through structured coding tasks\nEscalation Conditions\nEscalation should be considered when:\n- local confidence is low\n- a prior local attempt failed\n- similar past tasks were solved better by a specialist\n- the task has a strong reasoning or implementation signature\n- the operator explicitly prefers an external model\nStop and Review Conditions\nThe assistant should pause and request review when:\n- the task is high-risk\n- routing is unclear\n- the proposed external escalation is costly or sensitive\n- the task would affect core rules, approvals, or architecture"
+      "page_id": "3340f028-0c2b-8111-bbfc-cf63644a91e8",
+      "title": "JSON Export Contract v1",
+      "content": "Purpose\nThis page defines the exact field-by-field export contract for Reviews / Approvals entries so downstream automation know how every Notion property and narrative block flows into the machine-readable mirror.\nExport Scope\n- v1 only includes Reviews / Approvals database entries. Architecture pages and other content remain human-readable until a later version.\nProperty-to-JSON Mapping\n- Title → title\n- Task ID → task_id\n- Status → status\n- Decision → decision\n- Risk → risk\n- Route Target → route_target\n- Needs Approval → needs_approval\n- Execution Allowed → execution_allowed\n- Trigger Reason → trigger_reason\n- Operator Notes → operator_notes\n- Revised Instructions → revised_instructions\n- Sync Status → sync_status\n- Notion page ID → notion_page_id\n- Notion page URL → notion_url\n- Created At → created_at\n- Updated At → updated_at\nBody Section Mapping\n- Summary → body.summary\n- Full Context → body.full_context\n- Proposed Action → body.proposed_action\n- Why This Was Triggered → body.why_this_was_triggered\n- Risk Assessment → body.risk_assessment\n- Suggested Route → body.suggested_route\n- Affected Components → body.affected_components\n- Operator Notes section → body.operator_notes\n- Revised Instructions section → body.revised_instructions\n- Final Outcome → body.final_outcome\nConflict Rules\n- Structured properties override prose when both exist (e.g., Execution Allowed controls execution_allowed even if the body describes a different intent).\n- Body content remains descriptive context and is exported under the body object.\n- Missing body sections become empty strings in the final export to keep the structure stable.\n- Empty select values export as null to alert downstream consumers of the missing choice.\n- Unchecked checkboxes export as false so boolean expectations stay explicit.\nNormalization Rules\n- Booleans export as native true/false values.\n- Timestamps export in ISO 8601 format (UTC preferred) as produced by Notion’s Created/Updated fields.\n- Select values export as plain strings matching the option label.\n- Blank text exports as an empty string.\n- TBD is only used in this documentation or examples—never emitted by the production export.\nDecision-State Rule\n- Approve → execution_allowed = true.  \n- Deny → execution_allowed = false.  \n- Modify → execution_allowed = false.  \n- decision = null → default execution_allowed = false for v1 until an operator explicitly approves."
     }
   ],
   "notes": "Deterministic keyword matches only. Expand rules once the runner is available."

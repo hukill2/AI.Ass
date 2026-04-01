@@ -1,6 +1,6 @@
 {
   "task_id": "task-001",
-  "task_summary": "Add one validator script for a single existing JSON lane.",
-  "source_followup_id": "followup-1775021287314",
-  "source_execution_id": "exec-1775017171168-1"
+  "task_summary": "Update scripts/validate-codex-handoff-packets-v1.js to require executor_target, payload_id, and execution_id in each handoff packet.",
+  "source_followup_id": "followup-1775061006133",
+  "source_execution_id": "exec-1775060315230-1"
 }
