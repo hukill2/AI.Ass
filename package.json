@@ -20,6 +20,25 @@
     "status:routing": "node scripts/routing-status-report-v1.js",
     "validate:routing": "node scripts/validate-routing-decisions-v1.js",
     "status:all": "node scripts/status-all-v1.js",
-    "refresh:notion": "node scripts/refresh-notion-v1.js"
+    "refresh:notion": "node scripts/refresh-notion-v1.js",
+    "validate:task-context": "node scripts/validate-task-context-v1.js",
+    "run:qwen": "node scripts/run-local-assistant-qwen-v1.js",
+    "run:deepseek": "node scripts/run-local-assistant-deepseek-v1.js",
+    "run:workflow": "node scripts/run-local-workflow-v1.js",
+    "run:qwen:v2": "node scripts/run-local-assistant-qwen-v2.js",
+    "validate:assistant-decisions": "node scripts/validate-assistant-decisions-v1.js",
+    "status:assistant-decisions": "node scripts/assistant-decisions-status-report-v1.js",
+    "quality:assistant-decisions": "node scripts/assistant-decisions-quality-report-v1.js",
+    "refresh:assistant-decisions": "node scripts/assistant-decisions-refresh-v1.js",
+    "update:decision-review": "node scripts/update-decision-review-status-v1.js",
+    "resolve:approval-candidate": "node scripts/resolve-approval-candidate-v1.js",
+    "run:structured-workflow": "node scripts/run-structured-local-workflow-v1.js",
+    "validate:decision-reviews": "node scripts/validate-decision-reviews-v1.js",
+    "status:decision-reviews": "node scripts/decision-reviews-status-report-v1.js",
+    "refresh:decision-reviews": "node scripts/refresh-decision-reviews-v1.js",
+    "status:latest-decision": "node scripts/latest-decision-review-summary-v1.js",
+    "list:decision-reviews": "node scripts/list-decision-reviews-by-status-v1.js",
+    "list:approval-candidates": "node scripts/list-approval-candidates-v1.js",
+    "list:approved-awaiting-execution": "node scripts/list-approved-awaiting-execution-v1.js"
   }
 }

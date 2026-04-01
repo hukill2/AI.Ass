@@ -1,0 +1,20 @@
+```json
+{
+  "task_id": "task-001",
+  "recommended_next_step": "Implement the step that reads mirrored files and prepares context for routing.",
+  "files_to_create_or_update": ["runtime/read_mirrored_files.js"],
+  "reasoning": "The task requires reading mirrored files to gather context necessary for routing. This involves creating a script in the runtime directory to handle file reading and data preparation.",
+  "risks_or_guardrails": [
+    {
+      "risk": "File integrity",
+      "guardrail": "Ensure that only trusted sources are read from the mirror to prevent malicious or corrupted data."
+    },
+    {
+      "risk": "Performance impact",
+      "guardrail": "Optimize file reading and processing to avoid excessive resource consumption, especially if the mirrored files are large."
+    }
+  ],
+  "notes": "Refer to lr-002 for guidance on building and validating scripts. Ensure that the script updates the machine-readable architecture layer as required."
+}
+```
+

@@ -1,0 +1,8 @@
+Next step:
+1. Implement a small program or script to read mirrored files and prepare context for routing in accordance with the provided task context. The program should be capable of extracting relevant information from both local learning records and review state examples, which are stored as JSON objects within Notion pages. It should then process this data to generate a routing context that guides decision-making by the local assistant.
+2. Test the implementation thoroughly with different types of tasks and contexts to ensure it works correctly and outputs useful information for routing purposes. Make sure to cover all edge cases and potential issues.
+3. Document the process in a user-friendly way, including any challenges encountered during testing and how they were overcome. This documentation will be useful for future updates or maintenance of this feature.
+4. Once thoroughly tested and documented, integrate this implementation into the existing system. Ensure that all parts of the workflow are able to correctly utilize the prepared routing context. Monitor the overall performance and behavior of the local assistant after integration to ensure it behaves as expected. 
+5. Make any necessary adjustments or updates based on user feedback or new requirements. This includes revisiting and potentially reworking the system if necessary for enhanced efficiency, accuracy, or usability.
+
+
