@@ -7,11 +7,18 @@ const args = process.argv.slice(2);
 const contextFileArgIndex = args.findIndex((arg) => arg.startsWith('--context-file='));
 const contextJsonArgIndex = args.findIndex((arg) => arg.startsWith('--context-json='));
 
+const DEFAULT_PACKET_PATH = 'docs/closeout-context/active-packet.json';
+
 let contextSource;
 if (contextFileArgIndex !== -1) {
   contextSource = { type: 'file', value: args[contextFileArgIndex].split('=')[1] };
 } else if (contextJsonArgIndex !== -1) {
   contextSource = { type: 'json', value: args[contextJsonArgIndex].split('=')[1] };
+} else {
+  // fallback to default packet path if it exists
+  if (fs.existsSync(DEFAULT_PACKET_PATH)) {
+    contextSource = { type: 'file', value: DEFAULT_PACKET_PATH, auto: true };
+  }
 }
 
 if (!contextSource) {
@@ -35,7 +42,7 @@ function loadContext() {
     try {
       return parseJson(fs.readFileSync(contextSource.value, 'utf-8'));
     } catch (err) {
-      console.error(`Error reading context file: ${err.message}`);
+      console.error(`Error reading context file: ${contextSource.auto ? 'default packet ' : ''}${err.message}`);
       process.exit(3);
     }
   }
