@@ -19,3 +19,14 @@ This document defines how the future prompt-template system should be structured
 - Document that `docs/prompt-templates.md` now holds the current markdown mirror; it should include a last-refreshed note (2026-04-01) and point back to the Notion/canonical source. That mirror exists for offline/automation usage until a sync process keeps it in sync with Notion.
 - The helper script `scripts/check-prompt-template-mirror-v1.js` reports whether the mirror exists, that the freshness metadata is present, and whether the date can be parsed. Run it before relying on the mirror; it outputs a success line with the ISO date or an error describing missing/invalid metadata.
 - The mirror file now follows a schema where each template section uses `### <Name>` followed by a `> Template:` intro and a fenced code block. That pattern keeps the content consistent and easier to refresh.
+
+## Manual refresh workflow
+- **When to refresh:** Update the markdown mirror whenever the Notion prompt-template page or the draft `C:\AI.Ass\AI Prompt Templates.docx` changes meaningfully (e.g., adding a new template, renaming a section, or adjusting the rules). Treat every substantive Notion edit as a trigger for a mirror refresh.
+- **Who refreshes it:** The operator or maintainer who makes the Notion change should also refresh the mirror. If Notion edits come via a shared review, the reviewer/owner that approves the change must also update the markdown mirror and note it in the change log.
+- **Manual steps:**
+  1. Export the current Notion templates (or copy from `AI Prompt Templates.docx`) into the repository, replacing the contents under the appropriate sections in `docs/prompt-templates.md` while preserving the `> Template:` / code-block schema.
+  2. Update the top note `> **Last refreshed:**` with the current ISO date (e.g., `2026-04-01`).
+  3. Run `node scripts/check-prompt-template-mirror-v1.js` to verify the mirror file exists and the metadata parses cleanly.
+  4. Review the diff to ensure no accidental formatting or content drift occurred.
+- **Guard failure handling:** If the guard reports missing metadata or unparseable dates, fix the metadata line before committing (ensure the note follows `> **Last refreshed:** YYYY-MM-DD`). If the mirror file itself is missing, recreate it from the latest Notion export before re-running the guard.
+- **Commit/closeout notes:** When closing a subsystem or prompt-template change that only refreshes the mirror, mention “Mirror refresh” or similar in the closeout summary/commit message (e.g., “Mirror refresh: update prompt templates from Notion”). This keeps downstream guidebooks aware that the mirror now reflects the latest state.
