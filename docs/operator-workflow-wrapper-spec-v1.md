@@ -30,6 +30,11 @@ Each stage stops if its scripts flag errors.
 - The meta report JSON & Markdown, tooling manifest, validator suite summaries, and health brief serve as artifacts for downstream notes or tickets.
 - Exit code `0` means all invoked scripts passed; nonzero indicates the first stage failure.
 
+## Result contract & exit semantics
+- `0`: stage completed successfully; wrapper logs `Stage <name> completed.` and either continues or prints `Operator workflow wrapper completed successfully.` when the run finishes.
+- `1`: a stage aborted because one of its scripts failed or an invalid `--stage` was provided; the wrapper logs the failing script and stage so operators can fix the blocker before rerunning.
+- Operators rely on these exit codes to determine whether to move ahead, rerun a stage, or stop for troubleshooting without needing additional wrappers.
+
 ## Out-of-scope
 - No new modeling or execution logic: the wrapper runs existing scripts only.
 - No workflow branching beyond stage selection and candidate focus.
