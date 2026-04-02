@@ -57,10 +57,10 @@ pm run status:architecture.\n\n## Pull Rules\n- Pages are read-only.\n- Preserve
 # Purpose
 This file describes the current machine-readable data lanes in AI.Ass so operators and future automation understand which lane stores what.
 
-# Lane 1 � Reviews / Approvals
+# Lane 1 � Reviews / Approvals
 This lane covers review items, approval state, the mirror/export pipeline, and the future Notion pull source. The key files are `mirror/reviews-approvals-source.v1.json` and `exports/reviews-approvals-mirror.v1.json`, while the supporting scripts are `scripts/build-reviews-approvals-mirror-v1.js`, `scripts/validate-reviews-approvals-mirror-v1.js`, and `scripts/sync-status-report-v1.js`.
 
-# Lane 2 � Learning Records
+# Lane 2 � Learning Records
 This lane holds completed-task memory, lessons learned, future retrieval support, and inputs for routing improvements. The canonical file is `mirror/learning-records.v1.json`, with supporting validation and reporting provided by `scripts/validate-learning-records-v1.js` and `scripts/learning-status-report-v1.js`.
 
 # Why the Lanes Are Separate
@@ -118,10 +118,10 @@ This page defines the exact field-by-field export contract for Reviews / Approva
 
 # Normalization Rules
 - Booleans export as native `true`/`false` values.
-- Timestamps export in ISO 8601 format (UTC preferred) as produced by Notion�s Created/Updated fields.
+- Timestamps export in ISO 8601 format (UTC preferred) as produced by Notion�s Created/Updated fields.
 - Select values export as plain strings matching the option label.
 - Blank text exports as an empty string.
-- `TBD` is only used in this documentation or examples�never emitted by the production export.
+- `TBD` is only used in this documentation or examples�never emitted by the production export.
 
 # Decision-State Rule
 - Approve ? `execution_allowed = true`.
@@ -867,7 +867,7 @@ Each preview must capture:
 ## Source: docs/decision-review-gate-contract-v1.md
 
 # Decision Review Gate Contract v1\n\n## Purpose\nDefines how structured assistant decisions are classified for local review before any execution or Codex handoff occurs.\n\n## Scope\n- Applies to decisions stored in 
-untime/assistant-decisions.v1.json.\n- Does not execute code.\n- Does not call Codex.\n- Does not call Claude.\n- Does not send Telegram yet.\n- Does not push to Notion yet.\n\n## Decision Classes\n- **Informational** � observations or analysis-only guidance.\n- **Review-required** � proposals that involve meaningful repository, documentation, or process changes.\n- **Approval-required** � impacts execution, external actions, guardrails, routing policy, or sensitive data/state.\n\n## Initial Classification Rules\n- If the decision is explicitly analysis-only and proposes no file changes, classify it as informational.\n- If iles_to_create_or_update names project files, treat it at least as review-required.\n- If the decision proposes changing rules, architecture, approval flows, routing, or external integrations, escalate it to approval-required.\n\n## Required Review Record Fields\nEach review record should include:\n- 
+untime/assistant-decisions.v1.json.\n- Does not execute code.\n- Does not call Codex.\n- Does not call Claude.\n- Does not send Telegram yet.\n- Does not push to Notion yet.\n\n## Decision Classes\n- **Informational** � observations or analysis-only guidance.\n- **Review-required** � proposals that involve meaningful repository, documentation, or process changes.\n- **Approval-required** � impacts execution, external actions, guardrails, routing policy, or sensitive data/state.\n\n## Initial Classification Rules\n- If the decision is explicitly analysis-only and proposes no file changes, classify it as informational.\n- If iles_to_create_or_update names project files, treat it at least as review-required.\n- If the decision proposes changing rules, architecture, approval flows, routing, or external integrations, escalate it to approval-required.\n\n## Required Review Record Fields\nEach review record should include:\n- 
 eview_id\n- decision_id\n- 	ask_id\n- classification\n- 
 ecommended_action\n- operator_status\n- operator_notes\n- created_at\n- updated_at\n\n## Guardrails\n- No execution happens in v1.\n- Storing a decision is not the same as approving it.\n- Operator review remains authoritative.\n- Future Notion/Telegram integrations should route through this gate, not bypass it.\n
 
@@ -1818,59 +1818,7 @@ Report back with:
 
 ---
 
-## Source: docs/prompt-template-mirror-contract-v1.md
 
-# Prompt-template mirror contract v1
-
-This document defines how the prompt-template system is structured between Notion (living source) and the repo markdown mirror, keeping the operator wrapper/docs aware of the contract and preventing drift before any automation exists.
-
-## Existing references
-- `docs/operator-workflow-wrapper-spec-v1.md` currently points to `C:\AI.Ass\AI Prompt Templates.docx` as the placeholder location for the templates. That file should be considered the staging area until the Notion + markdown workflow is formalized.
-
-## Mirror contract
-
-1. **Canonical source (today):** Notion page “AI Prompt Templates” (URL TBD) is the primary, collaborative, editable store for the template text. Contributors edit Notion to craft and approve new prompts.
-2. **Markdown mirror:** The repo holds `docs/prompt-templates.md` as the assistant-facing markdown mirror. The markdown mirror is read-only unless updated via an explicit “mirror refresh” commit that pulls from Notion.
-3. **Assistant read order:** Assistants consult Notion first when needing a template (because it is canonical and reflects the latest signal); if they cannot reach Notion, they fall back to the markdown mirror while logging or flagging the missing Notion update.
-4. **Freshness expectations:** The mirror is considered fresh when the last refresh commit matches the latest Notion state. Until automation exists, include a simple date/timestamp note in the markdown mirror listing when it was last synced.
-5. **Future bidirectional-sync intent:** A future subsystem may add a pull process (Notion → markdown) and a guard/check (markdown → Notion warning) so the repo side can stay current automatically. That subsystem must log any divergence and should not allow the repo to become active unless the mirror is up to date.
-6. **What is not implemented yet:** No automation reads or writes Notion directly, no automated comparison exists, and no repo script modifies prompts. The current doc-only contract ensures clarity while keeping automation scoped to future work.
-7. **Operational completeness rule:** `docs/prompt-templates.md` is only a valid operational mirror when every retained template section contains real usable body text. Placeholder-only bodies such as `<ALIGNMENT_REVIEW_PROMPT_TEXT>` are not valid mirror content and must be populated from existing source truth or removed from the active mirror until real content exists.
-
-## References in other docs
-- Keep the “Reference materials” section in `docs/operator-workflow-wrapper-spec-v1.md` pointing to `C:\AI.Ass\AI Prompt Templates.docx` until a more permanent mirror is populated.
-- Document that `docs/prompt-templates.md` now holds the current markdown mirror; it should include a last-refreshed note and point back to the Notion/canonical source. That mirror exists for offline/automation usage until a sync process keeps it in sync with Notion.
-- The helper script `scripts/check-prompt-template-mirror-v1.js` reports whether the mirror exists, that the freshness metadata is present, and whether the date can be parsed. Run it before relying on the mirror; it outputs a success line with the ISO date or an error describing missing/invalid metadata.
-- The helper script `scripts/get-prompt-template-v1.js` can list available templates (`--list`) and print a named template (`--name="Closeout prompt"`), making the mirror consumable for downstream automation.
-- The mirror file follows a schema where each template section uses `### <Name>` followed by a `> Template:` intro and a fenced code block. That pattern keeps the content consistent and easier to refresh. Sections that only contain placeholder marker text are considered incomplete and should not remain in the active operational mirror.
-- **Placeholder contract:** Every placeholder inside the templates uses uppercase letters and underscores (e.g., `<SUBSYSTEM_NAME>`). Optional placeholders append `_OPTIONAL` (e.g., `<OPTIONAL_COMMIT_HASH>`). Scripts that assemble prompts should replace the placeholder text literally (case-insensitively) and assume placeholders never contain spaces or punctuation beyond underscores.
-- **Assembly validation semantics:** `build-prompt-from-template-v1` exits 0 on success, 1 for missing `--name`, 2 for invalid argument shapes, 3 for empty template name, 4 for missing template, 5 for leftover placeholders, and 6 for unused replacements. It prints the assembled prompt to stdout when exit 0; on error it logs the specific issue (unknown template, misuse of replacements, etc.) so operators or scripts know to rerun the guard or refresh the mirror.
-- **Usage/help contract:** Run `node scripts/build-prompt-from-template-v1.js --help` (or `-h`) for the invocation summary, options (`--name`, repeatable `--set KEY=VALUE`), and exit-code legend. The help output mirrors the actual options so operators can discover how to run the assemble script without reading the source code.
-- The help text also includes canonical examples showing how to set `SUBSYSTEM_NAME` and `COMMIT_MESSAGE` placeholders so operators can reuse the invocation patterns reliably.
-- **Workflow runner:** `node scripts/run-prompt-workflow-v1.js --name="<template>" [--set KEY=VALUE ...]` runs the guard first, halting if the mirror is stale, then calls the assembly utility; failure codes bubble through directly so operators know whether to rerun the guard or fix placeholder substitutions.
-- The runner help output matches the builder CLI (just pass the same `--name` and `--set` flags) and surfaces guard failures before any assembly is attempted. Downstream users should call this script instead of existing scripts when they want a single command that validates + assembles.
-- **Preset shortcuts:** The runner accepts `--preset=new_subsystem`, `closeout`, or `alignment_review` to cover common workflows without typing the full template name. The presets map to the existing mirror template names, so they reuse the canonical text but still allow additional `--set` replacements to customize the prompt.
-- **Preset contract:** allowed presets are `new_subsystem` (maps to “New subsystem thread opener”), `closeout` (maps to “Closeout prompt”), and `alignment_review` (maps to “Alignment review / planning prompt”). Using `--preset` without `--name` runs the guard and then assembles the mapped template; supplying both `--preset` and `--name` uses the explicit name while logging that the preset was ignored; unknown preset names produce an error and exit 2.
-- **Retrieval output contract:** `get-prompt-template-v1` exits 0 on successful list or template retrieval; exit codes 2-4 represent missing/invalid args or missing templates. The `--list` command prints one template name per line, while `--name="<Template Name>"` prints only the template body text (no headers or extra logging). Scripts relying on the utility should parse exit 0 for success, and treat any error codes as guard signals to run the freshness check before re-running.
-- The new script `scripts/build-prompt-from-template-v1.js` performs placeholder substitution on a named template. It runs `get-prompt-template-v1` under the hood, accepts repeated `--set KEY=VALUE` parameters for replacements like `--set SUBSYSTEM_NAME="Prompt mirror"` and prints the assembled prompt with substitutions applied.
-- **Closeout prompt helper:** `scripts/build-closeout-prompt-v1.js` wraps the workflow runner with the closeout preset so operators can generate a ready-to-review closeout prompt in one step. It accepts `--subsystem`, `--confirmed-change`, and `--contract-point` options (each forwarded as `--set` replacements) along with arbitrary `--set KEY=VALUE` pairs, runs the guard, and stops immediately if any placeholders remain. Use it whenever the goal is to produce a closeout summary without babysitting the guard/assembly flow manually.
-- **Closeout input contract:** The helper accepts the literal alias arguments shown above, each mapping to the indicated placeholder (`SUBSYSTEM_NAME`, `CONFIRMED_CHANGE`, `CONTRACT_POINT`). Each alias requires a value (e.g., `--subsystem="Prompt mirror"`) and produces the equivalent `--set` entry. Raw `--set KEY=VALUE` arguments are still supported and can be used to override or supply additional placeholders; replacements are processed in command order, so later values win when a placeholder appears multiple times. Supplying the same alias twice keeps the last value. Malformed alias syntax (missing `=` or value) or unknown options exit non-zero with an error, keeping the behavior predictable for automation.
-- **Closeout context loader:** `scripts/load-closeout-context-v1.js` reads explicit closeout values from a JSON source (`--context-file=path` for files or `--context-json='{"SUBSYSTEM_NAME":"..."}'` inline). All recognized keys are emitted as `--set KEY=VALUE` so the loader feeds the existing closeout contract without inventing new placeholders. Loaded values are passed before any direct CLI alias or `--set` arguments, which means manual inputs override the context when both target the same placeholder. Malformed JSON, missing files, or unreadable sources exit with distinct errors (2 for JSON parse issues, 3 for file read problems) so automation can diagnose refresh problems immediately. Use the loader when you already have a prepared closeout context JSON, and pass additional CLI values afterward to fine-tune the prompt.
-- **Closeout context schema:** The loader only accepts the JSON keys `SUBSYSTEM_NAME`, `CONFIRMED_CHANGE`, and `CONTRACT_POINT`. All keys are optional, but each must have a non-empty string value to be accepted; missing keys leave their placeholders unresolved so the downstream closeout generator can enforce placeholder substitution. Unknown keys cause the loader to exit 4 with an explicit message, empty/`null` values exit 5, and non-string values exit 6, keeping schema violations deterministic. Loaded context entries feed the existing placeholder contract before any CLI aliases or `--set KEY=VALUE` arguments, so manual inputs continue to override context when both target the same placeholder. This schema ensures tooling can rely on a stable JSON structure while still permitting manual overrides.
-- **Example context:** `docs/examples/closeout-context.example.json` contains a concrete instance of the schema so operators can copy it when preparing a closeout. The file lists each supported key with placeholder content and matches the schema (only the three supported keys, all with non-empty strings). Use it by running `node scripts/load-closeout-context-v1.js --context-file=docs/examples/closeout-context.example.json --set COMMIT_MESSAGE="Mirror refresh"`, or edit-and-run with your own values before invoking the closeout generator. Keep the example file as a reference until automation can generate context from higher-level work state.
-- **Closeout packet file convention:** When wrapping up an active work packet, place a closeout context file at `docs/closeout-context/<packet-name>.json` (e.g., `docs/closeout-context/subsystem-operator-workflow.json`). The file should follow the schema above (only `SUBSYSTEM_NAME`, `CONFIRMED_CHANGE`, `CONTRACT_POINT`) and be optional, but if present it becomes the default source for `scripts/load-closeout-context-v1.js --context-file=<path>` before running `scripts/build-closeout-prompt-v1.js`. Include it in the packet’s workspace so reviewers can copy or tweak it, and remove or archive it once the packet is closed to avoid stale context. This keeps the loader discoverable without inventing new discovery logic.
-- **Default packet path:** The loader looks for `docs/closeout-context/active-packet.json` when neither `--context-file` nor `--context-json` is supplied. If that file exists, it becomes the implicit context source so operators can push a packet-specific closeout file into `docs/closeout-context/` and run the loader without extra flags. Explicit options still win (`--context-file` / `--context-json`), and missing or malformed default files exit 3 with a message referencing the default path. Use the default path when the packet context is stable; keep the file in the packet area while active and remove it after the packet closes to keep the default behavior predictable.
-
-## Manual refresh workflow
-- **When to refresh:** Update the markdown mirror whenever the Notion prompt-template page or the draft `C:\AI.Ass\AI Prompt Templates.docx` changes meaningfully (e.g., adding a new template, renaming a section, or adjusting the rules). Treat every substantive Notion edit as a trigger for a mirror refresh.
-- **Who refreshes it:** The operator or maintainer who makes the Notion change should also refresh the mirror. If Notion edits come via a shared review, the reviewer/owner that approves the change must also update the markdown mirror and note it in the change log.
-- **Manual steps:**
-  1. Export the current Notion templates (or copy from `AI Prompt Templates.docx`) into the repository, replacing the contents under the appropriate sections in `docs/prompt-templates.md` while preserving the `> Template:` / code-block schema.
-  2. Update the top note `> **Last refreshed:**` with the current ISO date (e.g., `2026-04-01`).
-  3. Run `node scripts/check-prompt-template-mirror-v1.js` to verify the mirror file exists and the metadata parses cleanly.
-  4. Review the diff to ensure no accidental formatting or content drift occurred.
-- **Guard failure handling:** If the guard reports missing metadata or unparseable dates, fix the metadata line before committing (ensure the note follows `> **Last refreshed:** YYYY-MM-DD`). If the mirror file itself is missing, recreate it from the latest Notion export before re-running the guard.
-- **Commit/closeout notes:** When closing a subsystem or prompt-template change that only refreshes the mirror, mention “Mirror refresh” or similar in the closeout summary/commit message (e.g., “Mirror refresh: update prompt templates from Notion”). This keeps downstream guidebooks aware that the mirror now reflects the latest state.
 
 ---
 
