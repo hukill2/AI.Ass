@@ -7,6 +7,7 @@ This file mirrors the prompt templates stored in Notion (and currently staged in
 ## Templates
 
 ### New subsystem thread opener
+> Template:
 ```
 We are starting a new subsystem thread.
 
@@ -73,11 +74,13 @@ At the end, report:
 ```
 
 ### Alignment review / planning prompt
+> Template:
 ```
 <Insert the full alignment review / planning prompt text here from the template pack>
 ```
 
 ### Standard execution prompt
+> Template:
 ```
 Proceed with the subsystem implementation.
 
@@ -100,11 +103,13 @@ At the end, report:
 ```
 
 ### Do not drift / finish the work prompt
+> Template:
 ```
 <Insert the full "Do not drift / finish the work" prompt text from the pack>
 ```
 
 ### Closeout prompt
+> Template:
 ```
 This subsystem is complete. Close it out fully.
 
@@ -152,46 +157,55 @@ Suggested commit message:
 ```
 
 ### Commit-only prompt
+> Template:
 ```
 <Include the commit-only prompt content from the prompt pack>
 ```
 
 ### Validation prompt
+> Template:
 ```
 <Insert the validation prompt from the pack>
 ```
 
 ### Commit inconsistency / audit prompt
+> Template:
 ```
 <Insert the commit inconsistency / audit prompt text here>
 ```
 
 ### Next subsystem suggestion prompt
+> Template:
 ```
 <Insert the next subsystem suggestion prompt text here>
 ```
 
 ### Doc-only subsystem prompt
+> Template:
 ```
 <Insert the doc-only subsystem prompt text here>
 ```
 
 ### Code + doc subsystem prompt
+> Template:
 ```
 <Insert the code + doc subsystem prompt text here>
 ```
 
 ### Standard one-line rules
+> Template:
 ```
 <Insert standard one-line rules text here>
 ```
 
 ### Recommended flow
+> Template:
 ```
 <Insert the recommended flow text here>
 ```
 
 ### Minimal reusable skeleton
+> Template:
 ```
 New subsystem:
 - <NAME>
