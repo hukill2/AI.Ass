@@ -69,6 +69,11 @@ ode scripts/pull-architecture-pages-v1.js
 - The script now walks child_page descendants up to depth 2 (root level = 0) and annotates entries with level and parent_id so downstream tooling can reconstruct the hierarchy.
 - Traversal remains read-only; failures at any depth appear inside child_pages/child_failures with status: 'failed' and error details.
 
+## Snapshot validation
+- Provide `node scripts/validate-architecture-snapshot-v1.js <baseline.json> <comparison.json>` for comparing two previously captured snapshots.
+- The validator ensures both files exist, parse as JSON, and contain a `child_pages` array, then compares entries by `page_id` and reports added, removed, and changed entries.
+- Each changed entry lists the fields that drifted (`title`, `url`, `status`, `level`, `parent_id`) plus summaries of the snapshot differences; matching snapshots exit 0, diffs exit 2, and validation errors exit 1.
+
 ## Non-Goals
 - Do not implement push-back to Notion
 - Do not add Telegram notifications
