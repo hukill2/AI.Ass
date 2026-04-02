@@ -112,34 +112,52 @@ function parseArgs() {
   return args;
 }
 
+async function collectChildren(parentId, parentLevel, maxLevel, parentEntryId, visited, result) {
+  if (parentLevel >= maxLevel) {
+    return;
+  }
+  const blocks = await fetchBlocks(parentId);
+  const childPageBlocks = blocks.filter((block) => block.type === 'child_page');
+  for (const block of childPageBlocks) {
+    const childId = block.id;
+    if (visited.has(childId)) {
+      continue;
+    }
+    visited.add(childId);
+    try {
+      const childPage = await fetchPage(childId);
+      const entry = {
+        page_id: childId,
+        title: getPageTitle(childPage) || '',
+        url: childPage.url || '',
+        status: 'fetched',
+        level: parentLevel + 1,
+        parent_id: parentEntryId,
+      };
+      result.push(entry);
+      await collectChildren(childId, parentLevel + 1, maxLevel, childId, visited, result);
+    } catch (err) {
+      console.warn(`Failed to fetch child page ${childId}: ${err.message}`);
+      result.push({
+        page_id: childId,
+        status: 'failed',
+        error: err.message,
+        level: parentLevel + 1,
+        parent_id: parentEntryId,
+      });
+    }
+  }
+}
+
 async function run() {
   console.log('Fetching architecture root page...');
   const page = await fetchPage(ROOT_PAGE_ID);
   const title = getPageTitle(page) || 'untitled';
 
-  console.log('Enumerating immediate child pages...');
-  const blocks = await fetchBlocks(ROOT_PAGE_ID);
-  const childPageBlocks = blocks.filter((block) => block.type === 'child_page');
+  console.log('Enumerating child pages up to depth 2...');
   const childPages = [];
-  for (const block of childPageBlocks) {
-    const childId = block.id;
-    try {
-      const child = await fetchPage(childId);
-      childPages.push({
-        page_id: childId,
-        title: getPageTitle(child) || '',
-        url: child.url || '',
-        status: 'fetched',
-      });
-    } catch (err) {
-      console.warn(`Failed to fetch child page ${childId}: ${err.message}`);
-      childPages.push({
-        page_id: childId,
-        status: 'failed',
-        error: err.message,
-      });
-    }
-  }
+  const visited = new Set([ROOT_PAGE_ID]);
+  await collectChildren(ROOT_PAGE_ID, 0, 2, ROOT_PAGE_ID, visited, childPages);
 
   const payload = {
     status: 'success',
@@ -152,7 +170,7 @@ async function run() {
   };
 
   if (childPages.length === 0) {
-    console.log('No immediate architecture child pages were discovered.');
+    console.log('No architecture child pages were discovered.');
   }
 
   const payloadText = JSON.stringify(payload, null, 2);
