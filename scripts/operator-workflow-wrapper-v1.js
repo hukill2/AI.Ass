@@ -49,12 +49,25 @@ const stageScripts = {
   ]
 };
 
-const stages = Object.keys(stageScripts);
 const args = process.argv.slice(2);
+const stageNames = Object.keys(stageScripts);
 let stage = 'all';
 const stageArgIndex = args.findIndex((value) => value.startsWith('--stage='));
 if (stageArgIndex >= 0) {
   stage = args[stageArgIndex].split('=')[1];
+}
+
+function printUsage() {
+  const stageList = stageNames.join(', ');
+  console.log('Usage: node scripts/operator-workflow-wrapper-v1.js [--stage=<stage>] [--help]');
+  console.log('Supported stages:', stageList);
+  console.log('Example: node scripts/operator-workflow-wrapper-v1.js --stage=preflight');
+  console.log('Use --stage to run only that phase; omit it to run all stages in order.');
+}
+
+if (args.includes('--help') || args.includes('-h')) {
+  printUsage();
+  process.exit(0);
 }
 
 function runScript(name) {
@@ -106,14 +119,14 @@ function logFinalFailure(failure) {
   console.error('Operator workflow wrapper failed.');
 }
 
-if (stage !== 'all' && !stages.includes(stage)) {
-  logFinalFailure({ reason: `Unknown stage '${stage}'. Valid stages: ${stages.join(', ')}, all.` });
+if (stage !== 'all' && !stageNames.includes(stage)) {
+  logFinalFailure({ reason: `Unknown stage '${stage}'. Valid stages: ${stageNames.join(', ')}, all.` });
   process.exit(1);
 }
 
 const results = [];
 if (stage === 'all') {
-  for (const stageName of stages) {
+  for (const stageName of stageNames) {
     const stageResult = runStage(stageName);
     results.push(stageResult);
     if (stageResult.status === 'failed') {

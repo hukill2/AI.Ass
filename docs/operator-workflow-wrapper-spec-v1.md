@@ -13,6 +13,10 @@ This spec defines a minimal “operator workflow wrapper” that coordinates the
 - `--stage` (optional): `preflight`, `readiness`, `prep`, `post`, or `all` (default). Each stage runs the scripts tied to that phase, in the canonical order.
 - Without `--stage`, the wrapper runs the whole flow: preflight → readiness → execution prep → post-run verification.
 
+## Help output
+- Run `node scripts/operator-workflow-wrapper-v1.js --help` (or `-h`) to print the supported stages, usage line, and a reminder that omitting `--stage` runs all stages sequentially.
+- The help text mirrors the documented stage names so operators can discover them without diving into the spec.
+
 ## Inputs
 - Environment must point to the repo root (scripts expect standard runtime/*.json files).
 - The wrapper may accept `--candidate-id` to focus health checks on a single execution candidate when desired (scripts already support filtering via `summarize-approved...` variants).
