@@ -65,17 +65,45 @@ function runScript(name) {
   }
 }
 
+function logStageStart(stageName) {
+  console.log(`Stage "${stageName}" starting...`);
+}
+
+function logStageComplete(stageName) {
+  console.log(`Stage "${stageName}" completed successfully.`);
+}
+
+function logStageFailure(stageName, scriptName) {
+  console.error(`Stage "${stageName}" stopped at "${scriptName}".`);
+}
+
 function runStage(stageName) {
-  console.log(`Running stage ${stageName} scripts...`);
+  logStageStart(stageName);
   for (const script of stageScripts[stageName]) {
     try {
       runScript(script);
     } catch (err) {
-      console.error(`Stage ${stageName} failed at ${err.message}`);
-      process.exit(1);
+      logStageFailure(stageName, err.message);
+      return { stage: stageName, status: 'failed', script: err.message };
     }
   }
-  console.log(`Stage ${stageName} completed.`);
+  logStageComplete(stageName);
+  return { stage: stageName, status: 'success' };
+}
+
+function logFinalSuccess(results) {
+  const stageNames = results.map((item) => `"${item.stage}"`).join(', ');
+  console.log(`Summary: stages completed - ${stageNames}.`);
+  console.log('Operator workflow wrapper completed successfully.');
+}
+
+function logFinalFailure(failure) {
+  if (failure.reason) {
+    console.error(`Summary: ${failure.reason}`);
+  } else {
+    console.error(`Summary: stage "${failure.stage}" failed while running "${failure.script}".`);
+  }
+  console.error('Operator workflow wrapper failed.');
 }
 
 if (stage !== 'all' && !stages.includes(stage)) {

@@ -1,6 +1,6 @@
 {
   "task_id": "task-001",
-  "task_summary": "Update scripts/validate-codex-handoff-packets-v1.js to require executor_target, payload_id, and execution_id in each handoff packet.",
-  "source_followup_id": "followup-1775061006133",
-  "source_execution_id": "exec-1775060315230-1"
+  "task_summary": "Update scripts/validate-json-lane.js to exit with code 2 when the input file is missing, while keeping invalid JSON as exit code 1.",
+  "source_followup_id": "followup-1775066633005",
+  "source_execution_id": "exec-1775022550114-1"
 }

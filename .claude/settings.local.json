@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Compress-Archive -Path ''docs/write-safe-task-shaping-v1.md'',''docs/local-write-executor-contract-v1.md'',''docs/write-completion-meaning-v1.md'',''runtime/execution-logs.v1.json'',''runtime/execution-candidates.v1.json'' -DestinationPath ''handoff-brief.zip'' -Force\")",
+      "Bash(powershell -Command \"Get-Item ''C:/AI.Ass/handoff-brief.zip'' | Select-Object Name, Length, LastWriteTime\")"
+    ]
+  }
+}

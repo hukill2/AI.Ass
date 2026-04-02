@@ -66,6 +66,94 @@
       "operator_notes": "Approved second concrete validator enhancement.",
       "created_at": "2026-04-01T16:31:54.375Z",
       "updated_at": "2026-04-01T16:40:07.792Z"
+    },
+    {
+      "review_id": "review-1775063733058",
+      "decision_id": "dec-1775063730450",
+      "task_id": "task-001",
+      "classification": "informational",
+      "recommended_action": "store-only",
+      "operator_status": "pending",
+      "operator_notes": "",
+      "created_at": "2026-04-01T17:15:33.057Z",
+      "updated_at": "2026-04-01T17:15:33.057Z"
+    },
+    {
+      "review_id": "review-1775063994767",
+      "decision_id": "dec-1775063730450",
+      "task_id": "task-001",
+      "classification": "informational",
+      "recommended_action": "store-only",
+      "operator_status": "pending",
+      "operator_notes": "",
+      "created_at": "2026-04-01T17:19:54.766Z",
+      "updated_at": "2026-04-01T17:19:54.766Z"
+    },
+    {
+      "review_id": "review-1775064090103",
+      "decision_id": "dec-1775064087666",
+      "task_id": "task-001",
+      "classification": "review-required",
+      "recommended_action": "review-before-execution",
+      "operator_status": "approved",
+      "operator_notes": "Approved third concrete reporting helper update.",
+      "created_at": "2026-04-01T17:21:30.103Z",
+      "updated_at": "2026-04-01T17:24:56.596Z"
+    },
+    {
+      "review_id": "review-1775064692584",
+      "decision_id": "dec-1775064690147",
+      "task_id": "task-001",
+      "classification": "informational",
+      "recommended_action": "store-only",
+      "operator_status": "pending",
+      "operator_notes": "",
+      "created_at": "2026-04-01T17:31:32.583Z",
+      "updated_at": "2026-04-01T17:31:32.583Z"
+    },
+    {
+      "review_id": "review-1775065043129",
+      "decision_id": "dec-1775064690147",
+      "task_id": "task-001",
+      "classification": "informational",
+      "recommended_action": "store-only",
+      "operator_status": "pending",
+      "operator_notes": "",
+      "created_at": "2026-04-01T17:37:23.128Z",
+      "updated_at": "2026-04-01T17:37:23.128Z"
+    },
+    {
+      "review_id": "review-1775065435013",
+      "decision_id": "dec-1775065310412",
+      "task_id": "task-001",
+      "classification": "review-required",
+      "recommended_action": "review-before-execution",
+      "operator_status": "approved",
+      "operator_notes": "Approved replacement third validator helper.",
+      "created_at": "2026-04-01T17:43:55.012Z",
+      "updated_at": "2026-04-01T17:45:49.515Z"
+    },
+    {
+      "review_id": "review-1775066445013",
+      "decision_id": "dec-1775066442602",
+      "task_id": "task-001",
+      "classification": "informational",
+      "recommended_action": "store-only",
+      "operator_status": "pending",
+      "operator_notes": "",
+      "created_at": "2026-04-01T18:00:45.012Z",
+      "updated_at": "2026-04-01T18:00:45.012Z"
+    },
+    {
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "task_id": "task-001",
+      "classification": "review-required",
+      "recommended_action": "review-before-execution",
+      "operator_status": "approved",
+      "operator_notes": "Approved third validator exit-code update.",
+      "created_at": "2026-04-01T18:04:50.860Z",
+      "updated_at": "2026-04-01T18:07:26.725Z"
     }
   ]
 }

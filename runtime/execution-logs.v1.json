@@ -222,7 +222,145 @@
       "created_at": "2026-04-01T16:23:57.455Z"
     },
     {
-      "execution_log_id": "log-1775061842345",
+      "execution_log_id": "log-1775064536490",
+      "execution_id": "exec-1775064296687-1",
+      "review_id": "review-1775064090103",
+      "decision_id": "dec-1775064087666",
+      "payload_id": "payload-1775064396369",
+      "handoff_id": "handoff-1775064457096",
+      "preview_id": "preview-1775064536390",
+      "executor": "codex-readonly-check",
+      "execution_result": "no_change",
+      "files_changed": [],
+      "notes": "Read-only pre-execution eligibility check; no Codex invocation performed.",
+      "created_at": "2026-04-01T17:28:56.490Z"
+    },
+    {
+      "execution_log_id": "log-1775064561593",
+      "execution_id": "exec-1775064296687-1",
+      "review_id": "review-1775064090103",
+      "decision_id": "dec-1775064087666",
+      "payload_id": "payload-1775064396369",
+      "handoff_id": "handoff-1775064457096",
+      "preview_id": "preview-1775064536390",
+      "executor": "qwen-readonly",
+      "execution_result": "success",
+      "files_changed": [],
+      "notes": "Readonly output: Sure! Please provide me with the details of the specific criteria you want to use for filtering the review records. Additionally, please share the current script so I can make the necessary modificati; model=qwen2.5-coder:7b; cmd=ollama run qwen2.5-coder:7b",
+      "created_at": "2026-04-01T17:29:21.593Z"
+    },
+    {
+      "execution_log_id": "log-1775066176609",
+      "execution_id": "exec-1775065549613-1",
+      "review_id": "review-1775065435013",
+      "decision_id": "dec-1775065310412",
+      "payload_id": "payload-1775065918598",
+      "handoff_id": "handoff-1775066127543",
+      "preview_id": "preview-1775066176508",
+      "executor": "codex-readonly-check",
+      "execution_result": "no_change",
+      "files_changed": [],
+      "notes": "Read-only pre-execution eligibility check; no Codex invocation performed.",
+      "created_at": "2026-04-01T17:56:16.609Z"
+    },
+    {
+      "execution_log_id": "log-1775066199700",
+      "execution_id": "exec-1775065549613-1",
+      "review_id": "review-1775065435013",
+      "decision_id": "dec-1775065310412",
+      "payload_id": "payload-1775065918598",
+      "handoff_id": "handoff-1775066127543",
+      "preview_id": "preview-1775066176508",
+      "executor": "qwen-readonly",
+      "execution_result": "success",
+      "files_changed": [],
+      "notes": "Readonly output: Sure! I can help you with that. Could you please provide more details on what specific task or project you need assistance with? This will allow me to give you the most relevant and accurate guidance.; model=qwen2.5-coder:7b; cmd=ollama run qwen2.5-coder:7b",
+      "created_at": "2026-04-01T17:56:39.700Z"
+    },
+    {
+      "execution_log_id": "log-1775066997168",
+      "execution_id": "exec-1775066846831-1",
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "payload_id": "payload-1775066925977",
+      "handoff_id": "handoff-1775066968927",
+      "preview_id": "preview-1775066997088",
+      "executor": "codex-readonly-check",
+      "execution_result": "no_change",
+      "files_changed": [],
+      "notes": "Read-only pre-execution eligibility check; no Codex invocation performed.",
+      "created_at": "2026-04-01T18:09:57.168Z"
+    },
+    {
+      "execution_log_id": "log-1775067077702",
+      "execution_id": "exec-1775066846831-1",
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "payload_id": "payload-1775066925977",
+      "handoff_id": "handoff-1775066968927",
+      "preview_id": "preview-1775066997088",
+      "executor": "qwen-readonly",
+      "execution_result": "success",
+      "files_changed": [],
+      "notes": "Readonly output: Sure, I can help you update the `scripts/validate-json-lane.js` file to include the necessary checks. Below is an example of how you might modify the script: ```javascript const fs = require('fs'); co; model=qwen2.5-coder:7b; cmd=ollama run qwen2.5-coder:7b",
+      "created_at": "2026-04-01T18:11:17.702Z"
+    },
+    {
+      "execution_log_id": "write-1775067289212",
+      "execution_id": "exec-1775066846831-1",
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "executor": "qwen-write",
+      "execution_result": "failed",
+      "target_files": [
+        "scripts/validate-json-lane.js"
+      ],
+      "files_changed": [],
+      "notes": "Write failed task fidelity (missing lane-specific keywords). Preview: const fs = require('fs'); const path = require('path');",
+      "created_at": "2026-04-01T18:14:49.213Z",
+      "verification_attempted": false,
+      "verification_passed": false,
+      "verification_notes": "",
+      "verification_command": ""
+    },
+    {
+      "execution_log_id": "write-1775067539862",
+      "execution_id": "exec-1775066846831-1",
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "executor": "qwen-write",
+      "execution_result": "failed",
+      "target_files": [
+        "scripts/validate-json-lane.js"
+      ],
+      "files_changed": [],
+      "notes": "Write failed task fidelity (missing file-specific keywords). Preview: const fs = require('fs'); const path = require('path');",
+      "created_at": "2026-04-01T18:18:59.862Z",
+      "verification_attempted": false,
+      "verification_passed": false,
+      "verification_notes": "",
+      "verification_command": ""
+    },
+    {
+      "execution_log_id": "write-1775068228946",
+      "execution_id": "exec-1775066846831-1",
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "executor": "qwen-write",
+      "execution_result": "failed",
+      "target_files": [
+        "scripts/validate-json-lane.js"
+      ],
+      "files_changed": [],
+      "notes": "Write failed quality gate (contains conversational help request). Preview: const fs = require('fs'); const path = require('path');",
+      "created_at": "2026-04-01T18:30:28.946Z",
+      "verification_attempted": false,
+      "verification_passed": false,
+      "verification_notes": "",
+      "verification_command": ""
+    },
+    {
+      "execution_log_id": "log-1775082557555",
       "execution_id": "exec-1775061631751-1",
       "review_id": "review-1775061114375",
       "decision_id": "dec-1775061111940",
@@ -233,10 +371,10 @@
       "execution_result": "no_change",
       "files_changed": [],
       "notes": "Read-only pre-execution eligibility check; no Codex invocation performed.",
-      "created_at": "2026-04-01T16:44:02.345Z"
+      "created_at": "2026-04-01T22:29:17.555Z"
     },
     {
-      "execution_log_id": "log-1775061917255",
+      "execution_log_id": "log-1775082794148",
       "execution_id": "exec-1775061631751-1",
       "review_id": "review-1775061114375",
       "decision_id": "dec-1775061111940",
@@ -246,11 +384,83 @@
       "executor": "qwen-readonly",
       "execution_result": "success",
       "files_changed": [],
-      "notes": "Readonly output: To update the `scripts/validate-codex-handoff-packets-v1.js` script to require `executor_target`, `payload_id`, and `execution_id` in each handoff packet, you will need to ensure that these keys are p; model=qwen2.5-coder:7b; cmd=ollama run qwen2.5-coder:7b",
-      "created_at": "2026-04-01T16:45:17.255Z"
+      "notes": "Readonly output: To update the script `scripts/validate-codex-handoff-packets-v1.js` to ensure that each handoff packet includes `executor_target`, `payload_id`, and `execution_id`, you can follow these steps: 1. Open; model=qwen2.5-coder:7b; cmd=ollama run qwen2.5-coder:7b",
+      "created_at": "2026-04-01T22:33:14.148Z"
     },
     {
-      "execution_log_id": "write-1775062009662",
+      "execution_log_id": "write-1775083219726",
+      "execution_id": "exec-1775061631751-1",
+      "review_id": "review-1775061114375",
+      "decision_id": "dec-1775061111940",
+      "executor": "qwen-write",
+      "execution_result": "failed",
+      "target_files": [
+        "scripts/validate-codex-handoff-packets-v1.js"
+      ],
+      "files_changed": [],
+      "notes": "Write failed task fidelity (target name not mentioned). Preview: const { checkRequiredFields } = require('./utils');  function validateHandoffPacket(packet) {",
+      "created_at": "2026-04-01T22:40:19.726Z",
+      "verification_attempted": false,
+      "verification_passed": false,
+      "verification_notes": "",
+      "verification_command": ""
+    },
+    {
+      "execution_log_id": "write-1775083394476",
+      "execution_id": "exec-1775061631751-1",
+      "review_id": "review-1775061114375",
+      "decision_id": "dec-1775061111940",
+      "executor": "qwen-write",
+      "execution_result": "failed",
+      "target_files": [
+        "scripts/validate-codex-handoff-packets-v1.js"
+      ],
+      "files_changed": [],
+      "notes": "Write failed task fidelity (target name not mentioned). Preview: const fs = require('fs'); const path = require('path');",
+      "created_at": "2026-04-01T22:43:14.476Z",
+      "verification_attempted": false,
+      "verification_passed": false,
+      "verification_notes": "",
+      "verification_command": ""
+    },
+    {
+      "execution_log_id": "write-1775083488342",
+      "execution_id": "exec-1775061631751-1",
+      "review_id": "review-1775061114375",
+      "decision_id": "dec-1775061111940",
+      "executor": "qwen-write",
+      "execution_result": "failed",
+      "target_files": [
+        "scripts/validate-codex-handoff-packets-v1.js"
+      ],
+      "files_changed": [],
+      "notes": "Write failed task fidelity (target name not mentioned). Preview: const { exec } = require('child_process');  function validateHandoffPacket(packet) {",
+      "created_at": "2026-04-01T22:44:48.342Z",
+      "verification_attempted": false,
+      "verification_passed": false,
+      "verification_notes": "",
+      "verification_command": ""
+    },
+    {
+      "execution_log_id": "write-1775083675773",
+      "execution_id": "exec-1775061631751-1",
+      "review_id": "review-1775061114375",
+      "decision_id": "dec-1775061111940",
+      "executor": "qwen-write",
+      "execution_result": "failed",
+      "target_files": [
+        "scripts/validate-codex-handoff-packets-v1.js"
+      ],
+      "files_changed": [],
+      "notes": "Write failed task fidelity (target name not mentioned). Preview: const { strict: assert } = require('assert');  function validateHandoffPacket(packet) {",
+      "created_at": "2026-04-01T22:47:55.773Z",
+      "verification_attempted": false,
+      "verification_passed": false,
+      "verification_notes": "",
+      "verification_command": ""
+    },
+    {
+      "execution_log_id": "write-1775083892143",
       "execution_id": "exec-1775061631751-1",
       "review_id": "review-1775061114375",
       "decision_id": "dec-1775061111940",
@@ -263,29 +473,11 @@
         "scripts/validate-codex-handoff-packets-v1.js"
       ],
       "notes": "Wrote scripts/validate-codex-handoff-packets-v1.js with generated output. Verification passed (Syntax check passed.).",
-      "created_at": "2026-04-01T16:46:49.662Z",
+      "created_at": "2026-04-01T22:51:32.143Z",
       "verification_attempted": true,
       "verification_passed": true,
       "verification_notes": "Syntax check passed.",
       "verification_command": "node --check C:\\AI.Ass\\scripts\\validate-codex-handoff-packets-v1.js"
-    },
-    {
-      "execution_log_id": "write-1775063359752",
-      "execution_id": "exec-1775061631751-1",
-      "review_id": "review-1775061114375",
-      "decision_id": "dec-1775061111940",
-      "executor": "qwen-write",
-      "execution_result": "failed",
-      "target_files": [
-        "scripts/validate-codex-handoff-packets-v1.js"
-      ],
-      "files_changed": [],
-      "notes": "Write failed task fidelity (target name not mentioned). Preview: const fs = require('fs'); const path = require('path');",
-      "created_at": "2026-04-01T17:09:19.753Z",
-      "verification_attempted": false,
-      "verification_passed": false,
-      "verification_notes": "",
-      "verification_command": ""
     }
   ]
 }

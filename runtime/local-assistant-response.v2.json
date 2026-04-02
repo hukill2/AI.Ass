@@ -1,9 +1,11 @@
+```json
 {
   "task_id": "task-001",
-  "recommended_next_step": "Update scripts/validate-codex-handoff-packets-v1.js to require executor_target, payload_id, and execution_id in each handoff packet.",
-  "files_to_create_or_update": ["scripts/validate-codex-handoff-packets-v1.js"],
-  "reasoning": "This update ensures that all handoff packets contain essential metadata for proper processing and validation.",
-  "risks_or_guardrails": ["Potential failure if existing packets do not include the required fields", "Ensure scripts/validate-codex-handoff-packets-v1.js handles missing or incorrect fields gracefully"],
+  "recommended_next_step": "Update the scripts/validate-json-lane.js file to include a check for the input file's existence and exit with code 2 if it is missing. Keep invalid JSON as exit code 1.",
+  "files_to_create_or_update": ["scripts/validate-json-lane.js"],
+  "reasoning": "The task requires modifying an existing script to handle different exit conditions based on the presence of an input file. This change will enhance the robustness and reliability of the script, ensuring it behaves as expected under various scenarios.",
+  "risks_or_guardrails": ["Ensure that the updated script does not introduce new bugs or unexpected behavior.", "Verify that the script correctly handles both existing and non-existing files without altering its current functionality for valid JSON input."],
   "notes": ""
 }
+```
 

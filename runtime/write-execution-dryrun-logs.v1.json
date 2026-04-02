@@ -28,6 +28,20 @@
       "files_changed": [],
       "notes": "Dry-run write would validate or update target files without modifying the repo.",
       "created_at": "2026-04-01T16:46:33.171Z"
+    },
+    {
+      "write_dryrun_log_id": "write-dryrun-1775067276680",
+      "execution_id": "exec-1775066846831-1",
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "execution_result": "no_change",
+      "executor": "qwen-write-dryrun",
+      "target_files": [
+        "scripts/validate-json-lane.js"
+      ],
+      "files_changed": [],
+      "notes": "Dry-run write would validate or update target files without modifying the repo.",
+      "created_at": "2026-04-01T18:14:36.680Z"
     }
   ]
 }
