@@ -32,3 +32,13 @@ Clarify the supervised workflow meanings of write-attempted, write-succeeded, an
 ## Fidelity note
 `scripts/execute-local-write-v1.js` previously insisted the generated stdout for `scripts/validate-codex-handoff-packets-v1.js` repeat the literal basename, so compliant output kept getting rejected even after the validator itself was correct. The gate was relaxed just for that target: a handoff-keyword match is now enough while all other targets still require their own file-specific checks. The verified write log `write-1775083892143` demonstrates the corrected path.
 
+## Execution-candidate reporting & validation layer
+AI.Ass now publishes a full surface of execution-candidate visibility tools so operators can trust the pipeline end-to-end:
+
+- **Coverage data** (e.g., `summarize-execution-candidate-coverage-buckets-v1.js`) reports how many candidates are approved, pending, rejected, unreviewed, or anomalous, plus any tooling inventory gaps.
+- **Validator suite** tools (e.g., `validate-all-review-lanes-state-v1.js`, `validate-execution-candidate-ops-status-v1.js`, `validate-execution-candidate-status-output-alignment-v1.js`) routinely run to confirm every lane and tool remains healthy.
+- **Meta/health outputs** (JSON `summarize-execution-candidate-health-report-v1.js`, Markdown `summarize-execution-candidate-health-report-markdown-v1.js`, and the operator brief `summarize-execution-candidate-handoff-brief-v1.js`) package the up-to-date counts, tooling health, validator suite status, and output alignment into single artifacts.
+- **Alignment validators** (e.g., `validate-execution-candidate-health-report-output-alignment-v1.js`, `validate-execution-candidate-meta-report-output-alignment-v1.js`) ensure every surface agrees with the canonical state, and the inventory/manifest/catalog scripts describe the available tooling so automation can trust the suite composition.
+
+This layer is stable (all validators currently pass) and designed to let operators report the current health, tooling readiness, and approval coverage of execution candidates without re-running the models themselves.
+

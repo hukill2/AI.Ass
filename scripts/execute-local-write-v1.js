@@ -46,7 +46,11 @@ function isAllowed(file) {
 
 const CODE_INDICATORS = ['const', 'let', 'function', 'module.exports', 'json.parse', 'try {', 'require('];
 const HELP_PHRASES = ["i'd be happy to help", 'i need more information', 'please provide', 'please clarify', 'could you provide', 'let me know', 'do you have'];
-const FIDELITY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'codex', 'validation', 'packet'];
+const FIDELITY_PROFILE_KEYWORDS = {
+  'scripts/validate-codex-handoff-packets-v1.js': ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'codex', 'validation', 'packet'],
+  'scripts/validate-json-lane.js': ['missing file', 'exit code 2', 'exit code 1', 'exist', 'missing', 'parse', 'json'],
+};
+const DEFAULT_FIDELITY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'codex', 'validation', 'packet'];
 function evaluateQuality(text) {
   const lower = (text || '').toLowerCase();
   const indicator = CODE_INDICATORS.find((ind) => lower.includes(ind));
@@ -67,15 +71,30 @@ function snippet(text) {
   return (text || '').split(/\r?\n/).slice(0, 3).join(' ').trim();
 }
 
+function getFidelityKeywords(targetFile) {
+  const base = path.basename(targetFile);
+  if (FIDELITY_PROFILE_KEYWORDS[base]) {
+    return FIDELITY_PROFILE_KEYWORDS[base];
+  }
+  return DEFAULT_FIDELITY_KEYWORDS;
+}
+
 function checkTaskFidelity(text, targetFile) {
   const lower = (text || '').toLowerCase();
   const containsTarget = targetFile && lower.includes(path.basename(targetFile).toLowerCase());
-  const hasDomain = FIDELITY_KEYWORDS.some((kw) => lower.includes(kw));
+  const keywords = getFidelityKeywords(targetFile);
+  const hasDomain = keywords.some((kw) => lower.includes(kw));
   if (!containsTarget) {
+    if (path.basename(targetFile) === 'validate-codex-handoff-packets-v1.js') {
+      if (!hasDomain) {
+        return { pass: false, reason: 'missing handoff keyword' };
+      }
+      return { pass: true };
+    }
     return { pass: false, reason: 'target name not mentioned' };
   }
   if (!hasDomain) {
-    return { pass: false, reason: 'missing lane-specific keywords' };
+    return { pass: false, reason: 'missing file-specific keywords' };
   }
   return { pass: true };
 }
@@ -147,18 +166,31 @@ let verificationNotes = '';
 let verificationCommand = '';
 let failureStage = '';
 if (executionResult === 'no_change') {
-  const instruction = [
-    'You are executing the write-enabled AI.Ass assistant for scripts/validate-json-lane.js.',
+  const baseInstruction = [
     'Return ONLY the final contents of the file.',
     'No markdown, no code fences, no explanations, no introductions, no follow-up questions, no bullet points, no numbered lists.',
-    'Produce a Node.js script that:',
-    '- accepts a JSON file path from argv',
-    '- reads and parses the file,',
-    '- prints "valid" if parsing succeeds, otherwise prints the parsing or read error,',
-    '- exits with a non-zero status when the file is invalid or cannot be read.',
-    'Ensure the output is valid JavaScript.',
-  ].join(' ');
-  const fullPrompt = `${instruction}\n\n${preview.prompt_text}`;
+  ];
+  let instruction = [];
+  const targetFile = targetFiles[0];
+  if (targetFile.endsWith('validate-json-lane.js')) {
+    instruction = [
+      'You are executing the write-enabled AI.Ass assistant for scripts/validate-json-lane.js.',
+      ...baseInstruction,
+      'Produce a Node.js script that:',
+      '- accepts a JSON file path from argv,',
+      '- exits with code 2 when the file is missing or unreadable,',
+      '- prints "valid" and exits 0 when parsing succeeds,',
+      '- exits with code 1 if the JSON is invalid,',
+      '- ensures the program explicitly checks for file existence and handles parsing.',
+    ];
+  } else {
+    instruction = [
+      `You are executing the write-enabled AI.Ass assistant for ${targetFile}.`,
+      ...baseInstruction,
+      'Produce a Node.js script implementing the requested behavior clearly.',
+    ];
+  }
+  const fullPrompt = `${instruction.join(' ')}\n\n${preview.prompt_text}`;
   const spawnResult = spawnSync('ollama', ['run', 'qwen2.5-coder:7b'], { encoding: 'utf8', timeout: 120000, input: fullPrompt });
   const rawOutput = (spawnResult.stdout || '').trim();
   const stdout = rawOutput.replace(/```(?:[a-z]*\n)?([\s\S]*?)```/gi, '$1').trim();

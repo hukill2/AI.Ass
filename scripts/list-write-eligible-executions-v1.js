@@ -19,6 +19,20 @@ const successSet = new Map();
 readonlySuccessLogs.forEach(log => successSet.set(log.execution_id, log));
 
 const blockedKeywords = ['refactor','architecture','guardrail','routing','approval','integration'];
+const genericSteps = ['implementation','update','fix','improve','refactor','analysis-only','analysis'];
+
+function hasSpecificStep(step) {
+  if (!step || typeof step !== 'string') return false;
+  const lower = step.toLowerCase().trim();
+  if (!lower) return false;
+  const containsFile = lower.includes('scripts/') || lower.includes('runtime/') || lower.includes('.js');
+  const containsDetail = lower.includes('exit') || lower.includes('check') || lower.includes('target') || lower.includes('output') || lower.includes('field');
+  if (containsFile || containsDetail) return true;
+  for (const generic of genericSteps) {
+    if (lower === generic) return false;
+  }
+  return true;
+}
 
 const eligible = candidatesDoc.candidates.filter(candidate => {
   if (candidate.execution_status !== 'execution_prepared') return false;
@@ -30,6 +44,7 @@ const eligible = candidatesDoc.candidates.filter(candidate => {
   const files = candidate.files_to_create_or_update || [];
   if (!files.length) return false;
   const nextStep = (candidate.recommended_next_step || '').toLowerCase();
+  if (!hasSpecificStep(candidate.recommended_next_step)) return false;
   for (const keyword of blockedKeywords) {
     if (nextStep.includes(keyword)) return false;
   }
