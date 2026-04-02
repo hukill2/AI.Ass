@@ -43,6 +43,7 @@ This document defines how the prompt-template system is structured between Notio
   - `closeout` → “Closeout prompt”  
   - `alignment_review` → “Alignment review / planning prompt”  
   Each preset runs the guard first, then pipes the mapped template through `build-prompt-from-template-v1.js` with any extra `--set` replacements passed afterward. Supplying `--name="..."` explicitly overrides the preset (the preset flag is ignored when a name is given). This keeps the preset surface tight and predictable.
+# **Closeout runner contract:** `scripts/load-closeout-context-v1.js` forwards every context entry as `--set KEY=VALUE` to `scripts/build-closeout-prompt-v1.js`. The builder always invokes `scripts/run-prompt-workflow-v1.js --preset=closeout`, so the prompt-template guard executes first and the closeout template is then assembled automatically. The alias flags (`--subsystem`, `--confirmed-change`, `--contract-point`) simply become the expected placeholder replacements; any additional `--set` arguments append afterward.
 - **Example operator flow:**  
   1. Drop a JSON file under `tmp/closeout-context/active-packet.json` following the schema (`SUBSYSTEM_NAME`, `CONFIRMED_CHANGE`, `CONTRACT_POINT`) and rerun `node scripts/load-closeout-context-v1.js --set COMMIT_MESSAGE="..."`. The loader will read that local file automatically.  
   2. When you need a specific file path, run `node scripts/load-closeout-context-v1.js --context-file=docs/examples/closeout-context.example.json --set ...` (the example remains reference-only and matches the schema).  
