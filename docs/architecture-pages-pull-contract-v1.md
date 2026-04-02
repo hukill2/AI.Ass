@@ -74,7 +74,7 @@ ode scripts/pull-architecture-pages-v1.js
 - The validator ensures both files exist, parse as JSON, and contain a `child_pages` array, then compares entries by `page_id` and reports added, removed, and changed entries.
 - Each changed entry lists the fields that drifted (`title`, `url`, `status`, `level`, `parent_id`) plus summaries of the snapshot differences; matching snapshots exit 0, diffs exit 2, and validation errors exit 1.
 - Add a regression guard on top of the validator via `node scripts/check-architecture-snapshot-regression-v1.js --baseline=<baseline> --current=<current>`.
-- The guard reports which files were compared, reuses the validator’s structured output, exits 0 when no drift is detected, exits 2 when differences exist, and exits 1 for validation failures or missing inputs.
+- The guard reports which files were compared, reuses the validator’s structured output, and exits 0 when no drift is detected, 2 when the validator reports differences, and 1 when validation errors (missing/malformed snapshots) occur.
 
 ## Non-Goals
 - Do not implement push-back to Notion
