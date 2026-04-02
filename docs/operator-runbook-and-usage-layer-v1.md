@@ -48,6 +48,11 @@ node scripts/operator-workflow-wrapper-v1.js [--stage=<preflight|readiness|prep|
 
 Operators should treat this runbook as the primary reference for using the wrapper. The milestone docs remain supporting context, not the primary instruction source.
 
+## Execution candidate lifecycle overview
+- Reviewed items tagged `approval-required` move into execution candidate status once operator_status=approved and the assistant decision is valid.
+- Execution candidates must reach `execution_prepared` after passing the `readiness` wrapper stage, then validation guards determine the next executor lane: readonly (local read-only check/run), write (dry run + real execution), or Codex (prepare handoff/preview, dry run, real invocation).
+- Consult the respective executor docs for the detailed preconditions/inputs/results in each lane; this overview simply maps the lifecycle states to the wrapper/executor stages so operators know where to look next.
+
 ## Executor readiness overview
 - The executor layers progress through readonly (local-readonly-executor-status-v1), write (local-write-executor-contract-v1), and Codex (codex-execution-contract-v1) as operators prepare eligible execution candidates. Confirm the readonly executor log, prepare the write inputs, and stage the payload/handoff/preview per the linked contracts before considering Codex execution.
 - Treat each linked executor doc as the canonical readiness checklist for that layer; this runbook simply reminds you to consult them in sequence before promoting execution candidates.
