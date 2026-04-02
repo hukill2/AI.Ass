@@ -1,6 +1,6 @@
 # Prompt templates (markdown mirror)
 
-> **Last refreshed:** 2026-04-01
+> **Last refreshed:** 2026-04-02
 
 This file mirrors the prompt templates stored in Notion (and currently staged in `C:\AI.Ass\AI Prompt Templates.docx` for human reference). Until synchronized, refer to the source document for the authoritative text, but this markdown version is what the wrapper’s documentation and any scripts should read if Notion is unavailable.
 
@@ -76,7 +76,25 @@ At the end, report:
 ### Alignment review / planning prompt
 > Template:
 ```
-<ALIGNMENT_REVIEW_PROMPT_TEXT>
+Use this before work starts if you want Codex to inspect first and propose the smallest change set.
+
+Before making changes, give me a subsystem alignment review for this subsystem:
+
+Subsystem:
+- <SUBSYSTEM_NAME>
+
+Report:
+- current implementation behavior actually present
+- current doc behavior actually present
+- mismatches or ambiguities between docs and implementation
+- smallest coherent change set you recommend
+- expected file footprint
+- whether this still looks narrow and self-contained
+
+Constraints:
+- do not make changes yet
+- do not broaden scope
+- ignore unrelated untracked files unless directly required
 ```
 
 ### Standard execution prompt
@@ -105,7 +123,32 @@ At the end, report:
 ### Do not drift / finish the work prompt
 > Template:
 ```
-<DO_NOT_DRIFT_PROMPT_TEXT>
+Do not treat the previous reply as subsystem completion.
+
+This subsystem is not done until you actually make the narrow changes and summarize them.
+
+You do not need me to choose the canonical doc. Use the existing subsystem anchor:
+
+- Primary canonical doc: <PRIMARY_DOC>
+- Secondary alignment doc only if required: <SECONDARY_DOC>
+
+Subsystem:
+- <SUBSYSTEM_NAME>
+
+Your task now:
+1. Review the current implementation and current docs.
+2. Identify the existing behavior/output/contract already present.
+3. Make the smallest coherent implementation/doc changes needed to establish a stable subsystem contract.
+4. Update the canonical doc yourself.
+5. Only touch the secondary doc if a narrow alignment edit is required.
+6. Ignore unrelated untracked files unless directly required.
+7. Do not ask me which doc to touch unless there is real ambiguity after reviewing the repo.
+8. Do not declare completion unless substantive doc and/or code changes were actually made.
+
+Deliverable at the end:
+- files changed
+- exact canonical contract now in place
+- whether the subsystem is complete enough to commit
 ```
 
 ### Closeout prompt
@@ -159,49 +202,212 @@ Suggested commit message:
 ### Commit-only prompt
 > Template:
 ```
-<COMMIT_ONLY_PROMPT_TEXT>
+Proceed with subsystem closeout.
+
+Files staged:
+- <STAGED_FILE>
+- <STAGED_FILE>
+
+Your tasks now:
+1. Commit the staged subsystem files with this message:
+   - `<COMMIT_MESSAGE>`
+2. Report back with:
+   - the final commit hash
+   - confirmation that this subsystem is fully closed
+3. Then propose the next narrow subsystem in the same area.
+4. For that proposed next subsystem, include:
+   - subsystem name
+   - why it should come next
+   - expected file footprint
+   - whether it is likely doc-only, code+doc, or code-heavy
+
+Constraints:
+- Do not modify additional files during this step
+- Do not touch unrelated untracked files
+- Do not broaden scope beyond commit + next-step recommendation
 ```
 
 ### Validation prompt
 > Template:
 ```
-<VALIDATION_PROMPT_TEXT>
+Run final narrow subsystem-relevant validation for this subsystem.
+
+Subsystem:
+- <SUBSYSTEM_NAME>
+
+Required validation:
+- <CHECK_1>
+- <CHECK_2>
+- <CHECK_3>
+
+Instructions:
+1. Run only the narrow checks relevant to this subsystem.
+2. Report exact commands run.
+3. Report exit codes and concise behavior observed.
+4. If any validation fails, do not close out the subsystem yet.
+5. If validation passes, state that it is ready for closeout.
+
+Do not broaden scope or touch unrelated files.
 ```
 
 ### Commit inconsistency / audit prompt
 > Template:
 ```
-<COMMIT_INCONSISTENCY_PROMPT_TEXT>
+The closeout is not yet trustworthy as written.
+
+You reported that this subsystem changed:
+- <FILE_A>
+- <FILE_B>
+
+But the staged or committed files do not match that claim.
+
+Your task:
+1. Check the exact git status of the relevant subsystem files.
+2. Report whether each file is:
+   - modified
+   - staged
+   - already committed
+   - unchanged
+3. If a claimed subsystem file is not yet committed:
+   - stage only that file
+   - rerun the narrow relevant validation immediately before commit
+   - create a narrow follow-up commit
+4. If the file was already committed earlier, report the exact commit hash that contains it.
+5. Restate the subsystem closeout accurately.
+
+Report back with:
+- exact status of each relevant file
+- whether the subsystem is actually fully closed
+- any follow-up commit hash if needed
 ```
 
 ### Next subsystem suggestion prompt
 > Template:
 ```
-<NEXT_SUBSYSTEM_SUGGESTION_PROMPT_TEXT>
+Suggest the next narrow subsystem from here.
+
+Current closed subsystem:
+- <CURRENT_SUBSYSTEM_NAME>
+
+Context:
+- <SHORT_CONTEXT>
+- <SHORT_CONTEXT>
+
+Your response must include:
+- subsystem name
+- why it should come next
+- subsystem goal
+- expected file footprint
+- likely type: doc-only, code+doc, or code-heavy
+- what is explicitly out of scope
+- why it is narrow enough to stand alone
+
+Prefer the next subsystem to stay adjacent to the current implementation area and avoid broad architecture growth.
 ```
 
 ### Doc-only subsystem prompt
 > Template:
 ```
-<DOC_ONLY_SUBSYSTEM_PROMPT_TEXT>
+We are starting a new doc-only subsystem thread.
+
+Previous subsystem is closed:
+- <PREVIOUS_SUBSYSTEM>
+
+New subsystem:
+- <DOC_ONLY_SUBSYSTEM_NAME>
+
+Goal:
+Complete a narrow documentation-only subsystem that clarifies the current stable implementation and operator behavior without changing code.
+
+Primary file:
+- <PRIMARY_DOC>
+
+Secondary doc only if narrowly required:
+- <SECONDARY_DOC>
+
+Instructions:
+1. Review the current implementation and current docs first.
+2. Update the canonical documentation to reflect actual stable behavior.
+3. Do not change code unless a real defect is discovered.
+4. Keep the subsystem narrow and milestone-oriented.
+5. Commit only when the doc update stands on its own.
+
+Definition of done:
+- canonical doc updated
+- doc accurately reflects current implementation
+- no unnecessary file churn
+- subsystem stands alone as a milestone
+
+At the end, report:
+- what changed
+- exact files changed
+- whether it is complete enough to commit
 ```
 
 ### Code + doc subsystem prompt
 > Template:
 ```
-<CODE_DOC_SUBSYSTEM_PROMPT_TEXT>
+We are starting a new code+doc subsystem thread.
+
+Previous subsystem is closed:
+- <PREVIOUS_SUBSYSTEM>
+
+New subsystem:
+- <CODE_DOC_SUBSYSTEM_NAME>
+
+Goal:
+Complete a narrow subsystem that makes a small implementation change and codifies the resulting behavior in the canonical documentation.
+
+Primary files:
+- <CODE_FILE>
+- <DOC_FILE>
+
+Secondary files only if narrowly required:
+- <OPTIONAL_FILE>
+
+Instructions:
+1. Review the current implementation and docs first.
+2. Make the smallest coherent implementation change needed.
+3. Update the canonical doc to match the resulting behavior.
+4. Run final narrow subsystem-relevant validation before commit.
+5. Keep the subsystem narrow and self-contained.
+
+Definition of done:
+- implementation behavior is explicit and stable
+- canonical doc is aligned
+- validation passes
+- subsystem stands alone as a milestone
+
+At the end, report:
+- what changed
+- exact files changed
+- validation run
+- whether it is complete enough to commit
 ```
 
 ### Standard one-line rules
 > Template:
 ```
-<STANDARD_ONE_LINE_RULES_TEXT>
+Validation rule:
+Do not commit without final subsystem-relevant validation immediately beforehand.
+
+Anti-drift rule:
+Ignore unrelated untracked files unless they are directly required for this subsystem.
+
+Milestone rule:
+Require a doc update when the subsystem reaches a meaningful milestone, not for every individual file.
 ```
 
 ### Recommended flow
 > Template:
 ```
-<RECOMMENDED_FLOW_TEXT>
+1. New subsystem thread opener
+2. Alignment review prompt
+3. Standard execution prompt
+4. Validation prompt if needed
+5. Closeout prompt
+6. Commit-only prompt if files are already staged
+7. Next subsystem suggestion prompt
 ```
 
 ### Minimal reusable skeleton

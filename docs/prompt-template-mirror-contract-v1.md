@@ -1,6 +1,6 @@
 # Prompt-template mirror contract v1
 
-This document defines how the future prompt-template system should be structured between Notion (living source) and the repo markdown mirror, keeping the operator wrapper/docs aware of the contract and preventing drift before any automation exists.
+This document defines how the prompt-template system is structured between Notion (living source) and the repo markdown mirror, keeping the operator wrapper/docs aware of the contract and preventing drift before any automation exists.
 
 ## Existing references
 - `docs/operator-workflow-wrapper-spec-v1.md` currently points to `C:\AI.Ass\AI Prompt Templates.docx` as the placeholder location for the templates. That file should be considered the staging area until the Notion + markdown workflow is formalized.
@@ -8,18 +8,19 @@ This document defines how the future prompt-template system should be structured
 ## Mirror contract
 
 1. **Canonical source (today):** Notion page “AI Prompt Templates” (URL TBD) is the primary, collaborative, editable store for the template text. Contributors edit Notion to craft and approve new prompts.
-2. **Markdown mirror:** The repo holds `docs/prompt-templates.md` (this file is currently just the contract, but future iterations will host the exported templates). The markdown mirror is read-only unless updated via an explicit “mirror refresh” commit that pulls from Notion.
+2. **Markdown mirror:** The repo holds `docs/prompt-templates.md` as the assistant-facing markdown mirror. The markdown mirror is read-only unless updated via an explicit “mirror refresh” commit that pulls from Notion.
 3. **Assistant read order:** Assistants consult Notion first when needing a template (because it is canonical and reflects the latest signal); if they cannot reach Notion, they fall back to the markdown mirror while logging or flagging the missing Notion update.
 4. **Freshness expectations:** The mirror is considered fresh when the last refresh commit matches the latest Notion state. Until automation exists, include a simple date/timestamp note in the markdown mirror listing when it was last synced.
 5. **Future bidirectional-sync intent:** A future subsystem may add a pull process (Notion → markdown) and a guard/check (markdown → Notion warning) so the repo side can stay current automatically. That subsystem must log any divergence and should not allow the repo to become active unless the mirror is up to date.
 6. **What is not implemented yet:** No automation reads or writes Notion directly, no automated comparison exists, and no repo script modifies prompts. The current doc-only contract ensures clarity while keeping automation scoped to future work.
+7. **Operational completeness rule:** `docs/prompt-templates.md` is only a valid operational mirror when every retained template section contains real usable body text. Placeholder-only bodies such as `<ALIGNMENT_REVIEW_PROMPT_TEXT>` are not valid mirror content and must be populated from existing source truth or removed from the active mirror until real content exists.
 
 ## References in other docs
 - Keep the “Reference materials” section in `docs/operator-workflow-wrapper-spec-v1.md` pointing to `C:\AI.Ass\AI Prompt Templates.docx` until a more permanent mirror is populated.
-- Document that `docs/prompt-templates.md` now holds the current markdown mirror; it should include a last-refreshed note (2026-04-01) and point back to the Notion/canonical source. That mirror exists for offline/automation usage until a sync process keeps it in sync with Notion.
+- Document that `docs/prompt-templates.md` now holds the current markdown mirror; it should include a last-refreshed note and point back to the Notion/canonical source. That mirror exists for offline/automation usage until a sync process keeps it in sync with Notion.
 - The helper script `scripts/check-prompt-template-mirror-v1.js` reports whether the mirror exists, that the freshness metadata is present, and whether the date can be parsed. Run it before relying on the mirror; it outputs a success line with the ISO date or an error describing missing/invalid metadata.
 - The helper script `scripts/get-prompt-template-v1.js` can list available templates (`--list`) and print a named template (`--name="Closeout prompt"`), making the mirror consumable for downstream automation.
-- The mirror file now follows a schema where each template section uses `### <Name>` followed by a `> Template:` intro and a fenced code block. That pattern keeps the content consistent and easier to refresh.
+- The mirror file follows a schema where each template section uses `### <Name>` followed by a `> Template:` intro and a fenced code block. That pattern keeps the content consistent and easier to refresh. Sections that only contain placeholder marker text are considered incomplete and should not remain in the active operational mirror.
 - **Placeholder contract:** Every placeholder inside the templates uses uppercase letters and underscores (e.g., `<SUBSYSTEM_NAME>`). Optional placeholders append `_OPTIONAL` (e.g., `<OPTIONAL_COMMIT_HASH>`). Scripts that assemble prompts should replace the placeholder text literally (case-insensitively) and assume placeholders never contain spaces or punctuation beyond underscores.
 - **Assembly validation semantics:** `build-prompt-from-template-v1` exits 0 on success, 1 for missing `--name`, 2 for invalid argument shapes, 3 for empty template name, 4 for missing template, 5 for leftover placeholders, and 6 for unused replacements. It prints the assembled prompt to stdout when exit 0; on error it logs the specific issue (unknown template, misuse of replacements, etc.) so operators or scripts know to rerun the guard or refresh the mirror.
 - **Usage/help contract:** Run `node scripts/build-prompt-from-template-v1.js --help` (or `-h`) for the invocation summary, options (`--name`, repeatable `--set KEY=VALUE`), and exit-code legend. The help output mirrors the actual options so operators can discover how to run the assemble script without reading the source code.
