@@ -42,13 +42,23 @@ function loadContext() {
   return parseJson(contextSource.value);
 }
 
+const supportedKeys = new Set(['SUBSYSTEM_NAME', 'CONFIRMED_CHANGE', 'CONTRACT_POINT']);
 const context = loadContext();
 const contextSets = [];
 Object.entries(context).forEach(([key, value]) => {
-  if (value === undefined || value === null) {
-    return;
+  if (!supportedKeys.has(key)) {
+    console.error(`Unsupported context key: ${key}`);
+    process.exit(4);
   }
-  contextSets.push('--set', `${key}=${String(value)}`);
+  if (value === undefined || value === null || value === '') {
+    console.error(`Context key ${key} must have a non-empty value`);
+    process.exit(5);
+  }
+  if (typeof value !== 'string') {
+    console.error(`Context key ${key} must be a string`);
+    process.exit(6);
+  }
+  contextSets.push('--set', `${key}=${value}`);
 });
 
 const runnerArgs = [...contextSets, ...cleanedArgs];
