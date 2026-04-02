@@ -14,12 +14,16 @@ function printUsage(reason) {
   if (reason) {
     console.error(`Error: ${reason}`);
   }
-  console.log('Usage: node scripts/run-prompt-workflow-v1.js --name="<template>" [--set KEY=VALUE ...]');
+  console.log('Usage: node scripts/run-prompt-workflow-v1.js --name="<template>" [--set KEY=VALUE ...] | --preset=<preset>');
   console.log('This runs the freshness guard before assembling the prompt.');
+  console.log('Available presets: new_subsystem, closeout, alignment_review');
+  console.log('Preset mapping:');
+  Object.entries(presetMap).forEach(([key, value]) => {
+    console.log(`  ${key} -> ${value}`);
+  });
   console.log('Examples:');
   console.log('  node scripts/run-prompt-workflow-v1.js --name="Closeout prompt" --set SUBSYSTEM_NAME="Prompt mirror" --set COMMIT_MESSAGE="Refresh mirror"');
   console.log('  node scripts/run-prompt-workflow-v1.js --preset=closeout --set SUBSYSTEM_NAME="Prompt mirror"');
-  console.log('Presets: new_subsystem, closeout, alignment_review');
 }
 
 const presetArg = args.find((arg) => arg.startsWith('--preset='));
@@ -30,7 +34,10 @@ if (args.includes('--help') || args.includes('-h')) {
 
 const nameArg = args.find((arg) => arg.startsWith('--name='));
 let effectiveArgs = [...args];
-if (!nameArg) {
+if (nameArg && presetArg) {
+  printUsage('preset ignored when --name is provided');
+  effectiveArgs = [...args.filter((arg) => !arg.startsWith('--preset='))];
+} else if (!nameArg) {
   if (!presetArg) {
     printUsage('missing template name');
     process.exit(1);
@@ -42,11 +49,6 @@ if (!nameArg) {
     process.exit(2);
   }
   effectiveArgs = [...args, `--name=${templateName}`];
-} else if (presetArg) {
-  const presetTemplate = presetMap[presetArg.split('=')[1]];
-  if (presetTemplate) {
-    console.warn('Preset provided alongside --name; using explicit name.');
-  }
 }
 const guard = spawnSync(process.execPath, [path.resolve(__dirname, 'check-prompt-template-mirror-v1.js')], { stdio: 'inherit' });
 if (guard.status !== 0) {
