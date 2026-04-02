@@ -2,6 +2,7 @@
 
 ## Purpose
 Defines the first real write-enabled executor mode after readonly success and write dry-run success have both been validated.
+See `docs/operator-runbook-and-usage-layer-v1.md` for the executor readiness overview that links readonly, write, and Codex expectations.
 
 ## Preconditions
 Real write-enabled execution may only occur when:

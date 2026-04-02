@@ -2,6 +2,7 @@
 
 ## Purpose
 Defines the minimum conditions and data required before AI.Ass can invoke Codex for a real execution run while keeping everything explicit and reviewable.
+Consult `docs/operator-runbook-and-usage-layer-v1.md` for the executor readiness overview that explains how Codex execution builds on the readonly and write layers.
 
 ## Scope
 - Applies only to candidates that already have:

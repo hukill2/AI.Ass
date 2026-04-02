@@ -2,6 +2,7 @@
 
 ## Purpose
 Record the first successful real readonly executor run and document the current executor reality.
+Refer to `docs/operator-runbook-and-usage-layer-v1.md` for the executor readiness overview that ties this layer to the broader workflow.
 
 ## Current Executor Reality
 - The current real readonly executor uses **qwen2.5-coder:7b**.
