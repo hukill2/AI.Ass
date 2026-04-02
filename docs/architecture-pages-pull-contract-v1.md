@@ -3,3 +3,7 @@
 - The script's success payload includes a child_pages array where each entry follows the schema { page_id, title, url, status, error? } so downstream tooling can rely on stable keys.
 - Entries use status: 'fetched' when the child API returned a page and status: 'failed' plus error details when a fetch error occurred.
 - A child_failures list repeats the failed entries to simplify filtering without scanning stderr logs.
+
+## Snapshot persistence
+- Provide an optional `--output=PATH` flag (or `-o PATH`) so the same payload emitted to stdout can also be written to disk.
+- When supplied, the file is overwritten with the JSON payload and a confirmation message is printed; write failures exit with code 1 and an explicit error message.

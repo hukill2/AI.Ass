@@ -94,6 +94,24 @@ async function fetchBlocks(pageId) {
   return blocks;
 }
 
+function parseArgs() {
+  const args = {};
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg.startsWith('--output=')) {
+      args.output = arg.slice('--output='.length);
+    } else if (arg === '-o') {
+      if (i + 1 >= argv.length) {
+        throw new Error('Missing value for -o');
+      }
+      args.output = argv[i + 1];
+      i += 1;
+    }
+  }
+  return args;
+}
+
 async function run() {
   console.log('Fetching architecture root page...');
   const page = await fetchPage(ROOT_PAGE_ID);
@@ -137,9 +155,20 @@ async function run() {
     console.log('No immediate architecture child pages were discovered.');
   }
 
-  console.log(JSON.stringify(payload, null, 2));
-}
+  const payloadText = JSON.stringify(payload, null, 2);
+  console.log(payloadText);
 
+  if (args.output) {
+    try {
+      fs.writeFileSync(path.join(BASE_DIR, args.output), payloadText, 'utf8');
+      console.log(`Wrote architecture snapshot to ${args.output}`);
+    } catch (err) {
+      console.error(`Failed to write snapshot to ${args.output}: ${err.message}`);
+      process.exit(1);
+    }
+  }
+}
+const args = parseArgs();
 run().catch((err) => {
   console.error('Failed to fetch architecture root page:', err.message);
   process.exit(1);
