@@ -21,6 +21,9 @@ This spec defines a minimal “operator workflow wrapper” that coordinates the
 - Environment must point to the repo root (scripts expect standard runtime/*.json files).
 - The wrapper may accept `--candidate-id` to focus health checks on a single execution candidate when desired (scripts already support filtering via `summarize-approved...` variants).
 
+## Reference materials
+- The AI prompt templates for Codex, Claude, and Claude Code live at `C:\AI.Ass\AI Prompt Templates.docx`. Refer to that document when gathering standardized wording or context before having the assistant reach out to Codex/Claude. No automation currently consumes it yet; the doc simply centralizes the text for future use.
+
 ## Steps & Script Mapping
 1. **Preflight stage**: run `validate-execution-candidate-anomalies-v1.js`, `validate-all-review-lanes-state-v1.js`, `validate-execution-candidate-coverage-buckets-v1.js`, `validate-execution-candidate-view-coverage-v1.js`, and `validate-unreviewed-execution-state-v1.js`.
 2. **Readiness stage**: run `summarize-execution-candidate-coverage-buckets-v1.js`, tooling manifest/inventory/catalog summaries, `summarize-execution-candidate-health-report-v1.js` (and Markdown/brief versions), and their validators, plus `validate-execution-candidate-handoff-output-alignment-v1.js`.
