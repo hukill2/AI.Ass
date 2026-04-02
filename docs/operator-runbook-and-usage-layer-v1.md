@@ -52,3 +52,8 @@ Operators should treat this runbook as the primary reference for using the wrapp
 - Run `node scripts/check-prompt-template-mirror-v1.js` whenever you refresh the prompt mirror or before relying on the guard-protected templates.
 - If the guard reports `Template "<name>" contains only placeholder text…`, open `docs/prompt-templates.md`, replace that section with the real template content, or remove the template until real content exists, then rerun the guard.
 - Once the guard succeeds, proceed with the wrapper run or prompt-template automation that depends on the mirror.
+
+## Closeout workflow usage
+- Supply closeout context first via `load-closeout-context-v1.js` (`--context-file`, `--context-json`, or the tmp/closeout-context/active-packet.json convention) so the loader emits the required `SUBSYSTEM_NAME` / `CONFIRMED_CHANGE` / `CONTRACT_POINT` replacements.
+- Run `build-closeout-prompt-v1.js` as the operator-facing entry point; it automatically invokes `run-prompt-workflow-v1.js --preset=closeout`, so the guard and the closeout-template assembly happen without extra steps.
+- The alias flags simply translate into `--set` pairs; you can still append extra `--set KEY=VALUE` arguments for other placeholders (e.g., `COMMIT_MESSAGE`). No manual guard or preset invocation is necessary for the standard closeout flow.
