@@ -56,8 +56,8 @@ function printUsage() {
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
-  printUsage();
-  process.exit(1);
+  printUsage('missing args');
+  process.exit(2);
 }
 
 if (args.includes('--list')) {
@@ -68,16 +68,21 @@ if (args.includes('--list')) {
 }
 
 const nameArg = args.find((arg) => arg.startsWith('--name='));
-if (!nameArg) {
-  printUsage();
-  process.exit(1);
+if (!nameArg || args.length > 1) {
+  printUsage('invalid args');
+  process.exit(2);
 }
 
 const name = nameArg.split('=')[1].replace(/^"|"$/g, '').trim();
+if (!name) {
+  console.error('Template name is empty.');
+  process.exit(3);
+}
+
 const template = templates.find((item) => item.name.toLowerCase() === name.toLowerCase());
 if (!template) {
   console.error(`Template not found: ${name}`);
-  process.exit(1);
+  process.exit(4);
 }
 
 process.stdout.write(template.body);
