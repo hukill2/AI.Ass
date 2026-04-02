@@ -7,7 +7,7 @@ const args = process.argv.slice(2);
 const contextFileArgIndex = args.findIndex((arg) => arg.startsWith('--context-file='));
 const contextJsonArgIndex = args.findIndex((arg) => arg.startsWith('--context-json='));
 
-const DEFAULT_PACKET_PATH = 'docs/closeout-context/active-packet.json';
+const DEFAULT_PACKET_PATH = 'tmp/closeout-context/active-packet.json';
 
 let contextSource;
 if (contextFileArgIndex !== -1) {
@@ -22,7 +22,7 @@ if (contextFileArgIndex !== -1) {
 }
 
 if (!contextSource) {
-  console.error('Error: specify --context-file=PATH or --context-json=JSON');
+  console.error(`Error: no closeout context provided and default local context not found at ${DEFAULT_PACKET_PATH}. Specify --context-file=PATH or --context-json=JSON.`);
   process.exit(1);
 }
 
