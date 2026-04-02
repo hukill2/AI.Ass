@@ -12,35 +12,35 @@ This file mirrors the prompt templates stored in Notion (and currently staged in
 We are starting a new subsystem thread.
 
 Previous subsystem is closed:
-- <PREVIOUS SUBSYSTEM NAME>
-- <PREVIOUS SUBSYSTEM STATUS>
-- <OPTIONAL COMMIT HASH>
+- <PREVIOUS_SUBSYSTEM_NAME>
+- <PREVIOUS_SUBSYSTEM_STATUS>
+- <OPTIONAL_COMMIT_HASH>
 
 Treat the previous subsystem as closed unless a real defect is discovered.
 
 New subsystem:
-- <NEW SUBSYSTEM NAME>
+- <NEW_SUBSYSTEM_NAME>
 
 Why this comes next:
-- <REASON 1>
-- <REASON 2>
-- <REASON 3>
+- <REASON_1>
+- <REASON_2>
+- <REASON_3>
 
 Subsystem goal:
-<ONE PARAGRAPH GOAL>
+<GOAL_DESCRIPTION>
 
 Expected scope:
-- <SCOPE ITEM>
-- <SCOPE ITEM>
-- <SCOPE ITEM>
+- <SCOPE_ITEM>
+- <SCOPE_ITEM>
+- <SCOPE_ITEM>
 
 Primary files:
-- <PRIMARY FILE>
-- <PRIMARY FILE>
+- <PRIMARY_FILE>
+- <PRIMARY_FILE>
 
 Secondary files only if narrowly required:
-- <SECONDARY FILE>
-- <SECONDARY FILE>
+- <SECONDARY_FILE>
+- <SECONDARY_FILE>
 
 Out of scope unless explicitly required:
 - Broad refactors
@@ -61,9 +61,9 @@ Execution instructions:
 7. Commit only when the subsystem stands on its own.
 
 Definition of done:
-- <DONE ITEM>
-- <DONE ITEM>
-- <DONE ITEM>
+- <DONE_ITEM>
+- <DONE_ITEM>
+- <DONE_ITEM>
 - subsystem is complete enough to stand alone as a milestone
 
 At the end, report:
@@ -76,7 +76,7 @@ At the end, report:
 ### Alignment review / planning prompt
 > Template:
 ```
-<Insert the full alignment review / planning prompt text here from the template pack>
+<ALIGNMENT_REVIEW_PROMPT_TEXT>
 ```
 
 ### Standard execution prompt
@@ -85,7 +85,7 @@ At the end, report:
 Proceed with the subsystem implementation.
 
 Subsystem:
-- <SUBSYSTEM NAME>
+- <SUBSYSTEM_NAME>
 
 Your task:
 1. Review the current implementation and docs first.
@@ -105,7 +105,7 @@ At the end, report:
 ### Do not drift / finish the work prompt
 > Template:
 ```
-<Insert the full "Do not drift / finish the work" prompt text from the pack>
+<DO_NOT_DRIFT_PROMPT_TEXT>
 ```
 
 ### Closeout prompt
@@ -114,17 +114,17 @@ At the end, report:
 This subsystem is complete. Close it out fully.
 
 Subsystem:
-- <SUBSYSTEM NAME>
+- <SUBSYSTEM_NAME>
 
 Confirmed completed work:
-- <CONFIRMED CHANGE>
-- <CONFIRMED CHANGE>
-- <CONFIRMED CHANGE>
+- <CONFIRMED_CHANGE>
+- <CONFIRMED_CHANGE>
+- <CONFIRMED_CHANGE>
 
 Canonical contract now in place:
-- <CONTRACT POINT>
-- <CONTRACT POINT>
-- <CONTRACT POINT>
+- <CONTRACT_POINT>
+- <CONTRACT_POINT>
+- <CONTRACT_POINT>
 
 Required before commit:
 - Run final narrow subsystem-relevant validation immediately before commit.
@@ -153,55 +153,55 @@ Constraints:
 - Keep this thread focused on closing this subsystem and teeing up the next one cleanly
 
 Suggested commit message:
-- `<COMMIT MESSAGE>`
+- `<COMMIT_MESSAGE>`
 ```
 
 ### Commit-only prompt
 > Template:
 ```
-<Include the commit-only prompt content from the prompt pack>
+<COMMIT_ONLY_PROMPT_TEXT>
 ```
 
 ### Validation prompt
 > Template:
 ```
-<Insert the validation prompt from the pack>
+<VALIDATION_PROMPT_TEXT>
 ```
 
 ### Commit inconsistency / audit prompt
 > Template:
 ```
-<Insert the commit inconsistency / audit prompt text here>
+<COMMIT_INCONSISTENCY_PROMPT_TEXT>
 ```
 
 ### Next subsystem suggestion prompt
 > Template:
 ```
-<Insert the next subsystem suggestion prompt text here>
+<NEXT_SUBSYSTEM_SUGGESTION_PROMPT_TEXT>
 ```
 
 ### Doc-only subsystem prompt
 > Template:
 ```
-<Insert the doc-only subsystem prompt text here>
+<DOC_ONLY_SUBSYSTEM_PROMPT_TEXT>
 ```
 
 ### Code + doc subsystem prompt
 > Template:
 ```
-<Insert the code + doc subsystem prompt text here>
+<CODE_DOC_SUBSYSTEM_PROMPT_TEXT>
 ```
 
 ### Standard one-line rules
 > Template:
 ```
-<Insert standard one-line rules text here>
+<STANDARD_ONE_LINE_RULES_TEXT>
 ```
 
 ### Recommended flow
 > Template:
 ```
-<Insert the recommended flow text here>
+<RECOMMENDED_FLOW_TEXT>
 ```
 
 ### Minimal reusable skeleton
