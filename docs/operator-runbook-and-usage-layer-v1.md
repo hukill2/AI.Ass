@@ -59,6 +59,11 @@ Operators should treat this runbook as the primary reference for using the wrapp
   * **Readonly:** `node scripts/execute-codex-readonly-check-v1.js --execution_id=...` then `node scripts/execute-codex-readonly-v1.js --execution_id=...`; consult `local-readonly-executor-status-v1.md` for the required execution_id/preview inputs.
   * **Write:** `node scripts/execute-local-write-dryrun-v1.js --execution_id=...` prior to `node scripts/execute-local-write-v1.js --execution_id=...`; follow `local-write-executor-contract-v1.md` for the necessary payload, reasoning, and guardrail fields.
   * **Codex:** run `node scripts/prepare-codex-invocation-preview-v1.js ...`/`node scripts/prepare-codex-handoff-dry-run-v1.js ...` before calling `node scripts/execute-codex-approved-item-dryrun-v1.js --handoff_id=...`; see `codex-execution-contract-v1.md` for the payload/hand-off/previews you must stage.
+- **Executor result interpretation:**
+  * `success`/`execution_result=success` → execution log is recorded with `files_changed`; document the run and proceed per the executor contract.
+  * `blocked`/`execution_blocked` → missing approvals, payloads, or candidate structure; resolve the guardrail violation (see the respective executor doc) and rerun the same command.
+  * `failed` → the execution encountered an explicit failure; capture the executor log, review `notes`, and rerun once the root cause is fixed.
+  * `no_change` (Codex only) → Codex ran but produced no modifications; verify the prepared handoff/preview before accepting the result.
 
 ## Prompt-template guard remediation
 - Run `node scripts/check-prompt-template-mirror-v1.js` whenever you refresh the prompt mirror or before relying on the guard-protected templates.
