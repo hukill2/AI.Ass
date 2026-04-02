@@ -31,9 +31,14 @@ Each stage stops if its scripts flag errors.
 - Exit code `0` means all invoked scripts passed; nonzero indicates the first stage failure.
 
 ## Result contract & exit semantics
-- `0`: stage completed successfully; wrapper logs `Stage <name> completed.` and either continues or prints `Operator workflow wrapper completed successfully.` when the run finishes.
+- `0`: stage completed successfully; wrapper logs `Stage "<name>" completed successfully.` and either continues or prints `Operator workflow wrapper completed successfully.` when the run finishes.
 - `1`: a stage aborted because one of its scripts failed or an invalid `--stage` was provided; the wrapper logs the failing script and stage so operators can fix the blocker before rerunning.
 - Operators rely on these exit codes to determine whether to move ahead, rerun a stage, or stop for troubleshooting without needing additional wrappers.
+
+## Stage summary & final status wording
+- Each stage now logs `Stage "<name>" starting...` at the beginning and either `Stage "<name>" completed successfully.` when all scripts pass or `Stage "<name>" stopped at "<script>".` when a script fails.
+- When the requested stages finish, the wrapper prints `Summary: stages completed - "stage1", "stage2", ... .` followed by `Operator workflow wrapper completed successfully.` on success.
+- On failure (invalid stage name or script failure) it prints `Summary: <reason>` plus `Operator workflow wrapper failed.` so operators can hear the final result contract without parsing the earlier logs.
 
 ## Out-of-scope
 - No new modeling or execution logic: the wrapper runs existing scripts only.
@@ -48,3 +53,8 @@ This wrapper spec keeps the operator workflow predictable while letting the docu
 - **Supported stages:** Each stage maps to the scripts listed in the preflight checklist and canonical flow sections, so operators can focus on coverage, tooling, suite status, and health alignment before moving forward.
 - **Validation:** Existing validators (coverage, tooling inventory/manifest/catalog, health reports, suite status outputs, alignment checks, meta reports) already prove the layer is stable—refer to the checklist doc for explicit stop conditions.
 - **Operator value:** Operators can now treat this thin wrapper as the canonical entrypoint for in-house handoffs. It ensures every script in the reporting/validation stack runs in sequence, surfaces failures immediately, and produces the documented artifacts without extra orchestration.
+
+## Milestone: wrapper stage-summary and final-status output layer
+- **Code:** `scripts/operator-workflow-wrapper-v1.js` now logs `Stage "<name>" starting...`, `Stage "<name>" completed successfully.`, or `Stage "<name>" stopped at "<script>".` per stage and emits a standardized success or failure summary aligned with the documented exit codes.
+- **Docs:** The spec now defines the stage-summary wording, final success summary, and failure reason text so the printed output contract is predictable.
+- **Operator value:** Operators can read the console output to know exactly where the wrapper is, whether it stopped, and what to do next without needing extra translation.

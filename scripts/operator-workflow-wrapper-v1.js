@@ -107,16 +107,27 @@ function logFinalFailure(failure) {
 }
 
 if (stage !== 'all' && !stages.includes(stage)) {
-  console.error(`Unknown stage '${stage}'. Valid stages: ${stages.join(', ')}, all.`);
+  logFinalFailure({ reason: `Unknown stage '${stage}'. Valid stages: ${stages.join(', ')}, all.` });
   process.exit(1);
 }
 
+const results = [];
 if (stage === 'all') {
   for (const stageName of stages) {
-    runStage(stageName);
+    const stageResult = runStage(stageName);
+    results.push(stageResult);
+    if (stageResult.status === 'failed') {
+      logFinalFailure(stageResult);
+      process.exit(1);
+    }
   }
 } else {
-  runStage(stage);
+  const stageResult = runStage(stage);
+  results.push(stageResult);
+  if (stageResult.status === 'failed') {
+    logFinalFailure(stageResult);
+    process.exit(1);
+  }
 }
 
-console.log('Operator workflow wrapper completed successfully.');
+logFinalSuccess(results);
