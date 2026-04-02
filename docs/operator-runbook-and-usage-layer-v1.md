@@ -64,6 +64,8 @@ Operators should treat this runbook as the primary reference for using the wrapp
   * `blocked`/`execution_blocked` → missing approvals, payloads, or candidate structure; resolve the guardrail violation (see the respective executor doc) and rerun the same command.
   * `failed` → the execution encountered an explicit failure; capture the executor log, review `notes`, and rerun once the root cause is fixed.
   * `no_change` (Codex only) → Codex ran but produced no modifications; verify the prepared handoff/preview before accepting the result.
+- **Future-change trigger note:**
+  Revisit read/write/Codex executor docs whenever executor script names change, required inputs/payloads/handoffs are modified, new statuses or results are introduced, or the operator flow between readonly, write, and Codex shifts. These canonical documents should stay in sync with the actual script surfaces and runtime assumptions.
 
 ## Prompt-template guard remediation
 - Run `node scripts/check-prompt-template-mirror-v1.js` whenever you refresh the prompt mirror or before relying on the guard-protected templates.
