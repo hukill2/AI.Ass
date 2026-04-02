@@ -16,3 +16,4 @@ This document defines how the future prompt-template system should be structured
 
 ## References in other docs
 - Keep the “Reference materials” section in `docs/operator-workflow-wrapper-spec-v1.md` pointing to `C:\AI.Ass\AI Prompt Templates.docx` until a more permanent mirror is populated.
+- Document that `docs/prompt-templates.md` now holds the current markdown mirror; it should include a last-refreshed note (2026-04-01) and point back to the Notion/canonical source. That mirror exists for offline/automation usage until a sync process keeps it in sync with Notion.
