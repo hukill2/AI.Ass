@@ -41,6 +41,10 @@ for (let i = 0; i < args.length; i += 1) {
   } else if (arg.includes('=')) {
     const [option, value] = arg.split('=', 2);
     if (recognizedOptions[option]) {
+      if (!value) {
+        console.error(`Missing value for ${option}`);
+        process.exit(2);
+      }
       const key = recognizedOptions[option];
       sets.push(['--set', `${key}=${value}`]);
     } else {
