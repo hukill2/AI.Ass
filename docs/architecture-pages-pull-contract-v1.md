@@ -61,6 +61,8 @@ ode scripts/pull-architecture-pages-v1.js
 - Entries use status: 'fetched' when the child API returned a page and status: 'failed' plus error details when a fetch error occurred.
 - A child_failures list repeats the failed entries to simplify filtering without scanning stderr logs.
 
+- **Snapshot schema stability:** treat these keys as the stable contract for downstream consumers: top-level `status`, `root_page_id`, `title`, `url`, `child_count`, `child_pages`, `child_failures`, and for each child entry `page_id`, `title`, `url`, `status`, `level`, `parent_id` (with `error` populated only when status is `failed`). Additive metadata may appear in the future, but existing stable fields should remain compatible unless this contract is explicitly versioned.
+
 ## Snapshot persistence
 - Provide an optional --output=PATH (or -o PATH) flag so the same JSON payload can be written to disk in addition to the stdout dump.
 - When provided, the file is overwritten with the payload and a confirmation message is logged; write failures exit with code 1 and a descriptive error.
