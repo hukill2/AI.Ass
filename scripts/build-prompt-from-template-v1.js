@@ -3,13 +3,23 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 
 const args = process.argv.slice(2);
+if (args.includes('--help') || args.includes('-h')) {
+  printUsage();
+  process.exit(0);
+}
 
 function printUsage(reason) {
   if (reason) {
     console.error(`Error: ${reason}`);
   }
   console.log('Usage: node scripts/build-prompt-from-template-v1.js --name="<template>" [--set KEY=VALUE ...]');
-  console.log('Example: node scripts/build-prompt-from-template-v1.js --name="Closeout prompt" --set SUBSYSTEM_NAME="Prompt mirror" --set COMMIT_MESSAGE="Update mirror"');
+  console.log('Options:');
+  console.log('  --name="<template>"       required; selects the template');
+  console.log('  --set KEY=VALUE           repeatable; replaces <KEY> placeholders');
+  console.log('Examples:');
+  console.log('  node scripts/build-prompt-from-template-v1.js --name="Closeout prompt" --set SUBSYSTEM_NAME="Prompt mirror" --set COMMIT_MESSAGE="Refresh mirror"');
+  console.log('  node scripts/build-prompt-from-template-v1.js --name="Closeout prompt" --set SUBSYSTEM_NAME="Prompt mirror"');
+  console.log('Exit codes: 0=success, 1=missing name, 2=invalid args, 3=empty name, 4=template not found, 5=leftover placeholders, 6=unused replacements.');
 }
 
 const nameArg = args.find((arg) => arg.startsWith('--name='));
