@@ -78,6 +78,7 @@ ode scripts/pull-architecture-pages-v1.js
 - Add a regression guard on top of the validator via `node scripts/check-architecture-snapshot-regression-v1.js --baseline=<baseline> --current=<current>`.
 - The guard reports which files were compared, reuses the validator’s structured output, and exits 0 when no drift is detected, 2 when the validator reports differences, and 1 when validation errors (missing/malformed snapshots) occur.
 - **Baseline workflow:** capture a baseline snapshot with `node scripts/pull-architecture-pages-v1.js --output=baseline.json`, keep that file in the agreed location (repo-tracked path or a stable temp subfolder), compare each new snapshot against the baseline with the validator or guard before accepting changes, and refresh the baseline only after reviewed/approved architecture updates by rerunning the pull command and updating the stored baseline file intentionally.
+- **Snapshot path convention:** keep the working snapshot that is under review at a dedicated working path such as `tmp/architecture-snapshot-current.json`, store the approved baseline at a stable location (e.g., `snapshots/architecture-baseline.json` or another repo-agreed path), and always point the validator/regression guard at those agreed files. Change these paths only intentionally when refreshing the baseline as described above.
 
 ## Non-Goals
 - Do not implement push-back to Notion
