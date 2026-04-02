@@ -62,3 +62,8 @@ This wrapper spec keeps the operator workflow predictable while letting the docu
 - **Code:** `scripts/operator-workflow-wrapper-v1.js` now logs `Stage "<name>" starting...`, `Stage "<name>" completed successfully.`, or `Stage "<name>" stopped at "<script>".` per stage and emits a standardized success or failure summary aligned with the documented exit codes.
 - **Docs:** The spec now defines the stage-summary wording, final success summary, and failure reason text so the printed output contract is predictable.
 - **Operator value:** Operators can read the console output to know exactly where the wrapper is, whether it stopped, and what to do next without needing extra translation.
+
+## Milestone: operator wrapper help/usage polish
+- **Code:** `scripts/operator-workflow-wrapper-v1.js` exposes `--help`/`-h` to print the usage line and the stage list sourced directly from the stage map, along with guidance for running a single stage versus the full flow.
+- **Docs:** A “Help output” section now documents the built-in usage guidance so operators can discover the invocation shape and supported stages without diving into other docs.
+- **Operator value:** Operators can grab the CLI help and immediately see the correct stage names and invocation breakpoints, making the wrapper more discoverable out of the box.
