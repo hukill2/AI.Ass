@@ -111,9 +111,15 @@ async function run() {
         page_id: childId,
         title: getPageTitle(child) || '',
         url: child.url || '',
+        status: 'fetched',
       });
     } catch (err) {
       console.warn(`Failed to fetch child page ${childId}: ${err.message}`);
+      childPages.push({
+        page_id: childId,
+        status: 'failed',
+        error: err.message,
+      });
     }
   }
 
@@ -124,6 +130,7 @@ async function run() {
     url: page.url || '',
     child_count: childPages.length,
     child_pages: childPages,
+    child_failures: childPages.filter((entry) => entry.status === 'failed'),
   };
 
   if (childPages.length === 0) {
