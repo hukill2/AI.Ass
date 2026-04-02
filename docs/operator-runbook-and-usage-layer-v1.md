@@ -48,6 +48,10 @@ node scripts/operator-workflow-wrapper-v1.js [--stage=<preflight|readiness|prep|
 
 Operators should treat this runbook as the primary reference for using the wrapper. The milestone docs remain supporting context, not the primary instruction source.
 
+## Executor readiness overview
+- The executor layers progress through readonly (local-readonly-executor-status-v1), write (local-write-executor-contract-v1), and Codex (codex-execution-contract-v1) as operators prepare eligible execution candidates. Confirm the readonly executor log, prepare the write inputs, and stage the payload/handoff/preview per the linked contracts before considering Codex execution.
+- Treat each linked executor doc as the canonical readiness checklist for that layer; this runbook simply reminds you to consult them in sequence before promoting execution candidates.
+
 ## Prompt-template guard remediation
 - Run `node scripts/check-prompt-template-mirror-v1.js` whenever you refresh the prompt mirror or before relying on the guard-protected templates.
 - If the guard reports `Template "<name>" contains only placeholder text…`, open `docs/prompt-templates.md`, replace that section with the real template content, or remove the template until real content exists, then rerun the guard.
