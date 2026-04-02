@@ -4,6 +4,26 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const args = process.argv.slice(2);
+const helpArgIndex = args.findIndex((arg) => arg === '--help' || arg === '-h');
+if (helpArgIndex !== -1) {
+  console.log(`
+Usage: node scripts/load-closeout-context-v1.js [options] [--set KEY=VALUE ...]
+
+Options:
+  --help, -h             Show this help text.
+  --context-file=PATH    Read the closeout context from a JSON file. Takes precedence over other sources.
+  --context-json=JSON    Read the closeout context from an inline JSON string.
+
+If neither --context-file nor --context-json is supplied, the loader reads tmp/closeout-context/active-packet.json (local-only). Loaded context entries are forwarded as --set KEY=VALUE to build-closeout-prompt-v1.js; later CLI --set values override earlier ones.
+
+Exit codes:
+  0 - success / help out
+  1 - missing context when no default local file exists
+  2-6 - existing parse/schema validation errors
+`);
+  process.exit(0);
+}
+
 const contextFileArgIndex = args.findIndex((arg) => arg.startsWith('--context-file='));
 const contextJsonArgIndex = args.findIndex((arg) => arg.startsWith('--context-json='));
 
@@ -26,7 +46,7 @@ if (!contextSource) {
   process.exit(1);
 }
 
-const cleanedArgs = args.filter((_, idx) => idx !== contextFileArgIndex && idx !== contextJsonArgIndex);
+const cleanedArgs = args.filter((_, idx) => idx !== contextFileArgIndex && idx !== contextJsonArgIndex && idx !== helpArgIndex);
 
 function parseJson(raw) {
   try {
