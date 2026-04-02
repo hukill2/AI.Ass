@@ -65,10 +65,33 @@ if (result.status !== 0) {
 
 let prompt = result.stdout;
 
+const placeholderRegex = /<([A-Z0-9_]+)>/g;
+const placeholders = [];
+let match;
+while ((match = placeholderRegex.exec(prompt)) !== null) {
+  placeholders.push(match[1]);
+}
+
+const usedReplacements = new Set();
 Object.entries(replacements).forEach(([key, value]) => {
   const placeholder = `<${key}>`;
   const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+  if (regex.test(prompt)) {
+    usedReplacements.add(key);
+  }
   prompt = prompt.replace(regex, value);
 });
+
+const leftover = placeholders.filter((name) => !usedReplacements.has(name));
+if (leftover.length > 0) {
+  console.error(`Unreplaced placeholders: ${leftover.map((name) => `<${name}>`).join(', ')}`);
+  process.exit(5);
+}
+
+const unused = Object.keys(replacements).filter((name) => !usedReplacements.has(name));
+if (unused.length > 0) {
+  console.error(`Unused replacements: ${unused.map((name) => `<${name}>`).join(', ')}`);
+  process.exit(6);
+}
 
 console.log(prompt.trim());
