@@ -204,13 +204,13 @@ function runStage(stageName) {
         detail: null
       };
     }
-    const reviewStatusResult = runScript('validate-eligible-candidate-review-status-v1');
-    if (reviewStatusResult.status !== 0) {
-      logStageFailure(stageName, 'validate-eligible-candidate-review-status-v1');
+    const classificationResult = runScript('validate-eligible-candidate-review-classification-v1');
+    if (classificationResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-review-classification-v1');
       return {
         stage: stageName,
         status: 'failed',
-        script: 'validate-eligible-candidate-review-status-v1',
+        script: 'validate-eligible-candidate-review-classification-v1',
         detail: null
       };
     }
