@@ -72,6 +72,10 @@ Operators should treat this runbook as the primary reference for using the wrapp
   * `success`/`execution_result=success` → execution log is recorded with `files_changed`; document the run and proceed per the executor contract.
   * `blocked`/`execution_blocked` → missing approvals, payloads, or candidate structure; resolve the guardrail violation (see the respective executor doc) and rerun the same command.
   * `failed` → the execution encountered an explicit failure; capture the executor log, review `notes`, and rerun once the root cause is fixed.
+- **Executor success appendix** (short lookup):
+  * **Readonly lane** – `docs/local-readonly-executor-status-v1.md` holds the canonical readonly execution log IDs, executor label (`qwen-readonly`), and `execution_result=success` entries; confirm it after each successful wrapper run before progressing toward write or Codex prep.
+  * **Write lane** – `docs/local-write-executor-contract-v1.md` describes the required write-mode payloads, guardrails, and expected outputs; update that doc (and any dry-run entries) before allowing new repo writes even though the wrapper stage already reported success.
+  * **Codex lane** – `docs/codex-execution-contract-v1.md` still defines the future Codex handoff requirements; use it to understand what success will look like when Codex execution becomes live, but rely on its documented contract rather than assuming immediate handoff.
   * `no_change` (Codex only) → Codex ran but produced no modifications; verify the prepared handoff/preview before accepting the result.
 - **Future-change trigger note:**
   Revisit read/write/Codex executor docs whenever executor script names change, required inputs/payloads/handoffs are modified, new statuses or results are introduced, or the operator flow between readonly, write, and Codex shifts. These canonical documents should stay in sync with the actual script surfaces and runtime assumptions.
