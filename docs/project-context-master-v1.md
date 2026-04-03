@@ -1240,6 +1240,8 @@ Each follow-up task record must include:
 
 This spec defines a minimal “operator workflow wrapper” that coordinates the existing scripts in the reporting/validation/meta stack. Its job is to give operators one consistent entrypoint for the preflight → readiness → execution-prep → post-verification flow described elsewhere.
 
+The preflight checklist now includes the newly added `validate-eligible-candidate-readonly-log-execution-id-match-v1.js` guard, so the wrapper explicitly confirms a successful `qwen-readonly` log shares the same execution identity as the chosen candidate before continuing through the handoff/review validation chain.
+
 ## Purpose
 - Provide a single command that runs the documented preflight checklist, tooling readiness checks, validator suite, meta health reports, and alignment validations.
 - Surface clear pass/fail outcomes, stop conditions, and resulting artifacts without re-implementing the core scripts.
