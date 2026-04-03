@@ -59,6 +59,7 @@ Operators should treat this runbook as the primary reference for using the wrapp
 ## Executor readiness overview
 - The executor layers progress through readonly (local-readonly-executor-status-v1), write (local-write-executor-contract-v1), and Codex (codex-execution-contract-v1) as operators prepare eligible execution candidates. Confirm the readonly executor log, prepare the write inputs, and stage the payload/handoff/preview per the linked contracts before considering Codex execution.
 - Treat each linked executor doc as the canonical readiness checklist for that layer; this runbook simply reminds you to consult them in sequence before promoting execution candidates.
+- **Next action after execution success:** when the wrapper reports `execution_result=success` for the readonly/preflight path, record that snapshot in `docs/local-readonly-executor-status-v1.md` (confirm the execution log and `success` fields) and only dive into `docs/local-write-executor-contract-v1.md` once you are intentionally preparing the write-mode inputs/results.
 - **Executor surface inventory:**
   * **Readonly:** `execute-codex-readonly-check-v1.js` for validation and `execute-codex-readonly-v1.js` for the actual readonly run (both rely on the linked readonly status doc).
   * **Write:** `execute-local-write-dryrun-v1.js` verifies the write candidate before `execute-local-write-v1.js` performs the real change; both scripts rely on the write contract’s preconditions and guardrails.
