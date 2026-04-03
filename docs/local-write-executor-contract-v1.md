@@ -57,3 +57,12 @@ Real write-enabled execution must produce:
 - All changes must be attributable and logged.
 - Execution success is separate from approval.
 - Failed execution must still be logged.
+
+## Readiness helper
+- Run `node scripts/validate-local-write-readiness-v1.js --execution-id=<id>` before attempting a write dry run or real write. It confirms:
+  * the execution candidate exists and remains `execution_prepared` or `awaiting_execution`
+  * the executor payload record exists and provides `payload_id` for traceability
+  * a successful qwen-readonly log already exists for this execution
+  * a successful qwen-write log already exists for this execution
+  * the Codex handoff packet and invocation preview referenced in the latest successful qwen-readonly log are present so the write lane has the required payload data
+- On failure the script exits nonzero with a clear message (missing candidate, logs, or artifacts), so you can rebuild the missing pieces and re-run it until it passes.
