@@ -189,6 +189,11 @@ function runStage(stageName) {
       logStageFailure(stageName, 'validate-eligible-candidate-handoff-preview-v1');
       return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-handoff-preview-v1', detail: null };
     }
+    const reviewResult = runScript('validate-eligible-candidate-review-v1');
+    if (reviewResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-review-v1');
+      return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-review-v1', detail: null };
+    }
     let targetExecutionId = executionId;
     if (!targetExecutionId) {
       const candidate = selectSingleEligibleCandidate();
