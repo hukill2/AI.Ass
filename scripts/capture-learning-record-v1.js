@@ -8,6 +8,8 @@ const logsPath = path.join(runtimeDir, 'execution-logs.v1.json');
 const taskContextPath = path.join(runtimeDir, 'task-context.v1.json');
 const taskInputPath = path.join(runtimeDir, 'task-input.v1.json');
 const learningStorePath = path.join(runtimeDir, 'learning-records.v1.json');
+const mirrorDir = path.join(__dirname, '..', 'mirror');
+const mirrorStorePath = path.join(mirrorDir, 'learning-records.v1.json');
 
 function displayUsage() {
   console.log('Usage: node scripts/capture-learning-record-v1.js [--execution-id=ID]');
@@ -156,5 +158,8 @@ if (learningDoc.records.some(item => item.record_id === record.record_id)) {
 } else {
   learningDoc.records.push(record);
   fs.writeFileSync(learningStorePath, JSON.stringify(learningDoc, null, 2) + '\n', 'utf8');
+  // Keep the documented mirror lane in sync with the runtime store
+  fs.mkdirSync(mirrorDir, { recursive: true });
+  fs.copyFileSync(learningStorePath, mirrorStorePath);
   console.log(`Captured learning record ${record.record_id} for ${executionId}.`);
 }
