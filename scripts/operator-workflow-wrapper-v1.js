@@ -199,6 +199,11 @@ function runStage(stageName) {
       logStageFailure(stageName, 'validate-eligible-candidate-task-context-v1');
       return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-task-context-v1', detail: null };
     }
+    const decisionResult = runScript('validate-eligible-candidate-decision-linkage-v1');
+    if (decisionResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-decision-linkage-v1');
+      return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-decision-linkage-v1', detail: null };
+    }
     let targetExecutionId = executionId;
     if (!targetExecutionId) {
       const candidate = selectSingleEligibleCandidate();
