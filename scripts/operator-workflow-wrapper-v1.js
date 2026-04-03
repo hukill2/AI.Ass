@@ -174,6 +174,11 @@ function runStage(stageName) {
       logStageFailure(stageName, 'validate-execution-candidates-uniqueness-v1');
       return { stage: stageName, status: 'failed', script: 'validate-execution-candidates-uniqueness-v1', detail: null };
     }
+    const logResult = runScript('validate-eligible-candidate-logs-v1');
+    if (logResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-logs-v1');
+      return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-logs-v1', detail: null };
+    }
     let targetExecutionId = executionId;
     if (!targetExecutionId) {
       const candidate = selectSingleEligibleCandidate();
