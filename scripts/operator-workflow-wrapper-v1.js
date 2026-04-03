@@ -164,6 +164,11 @@ function selectSingleEligibleCandidate() {
 function runStage(stageName) {
   logStageStart(stageName);
   if (stageName === 'preflight') {
+    const schemaResult = runScript('validate-execution-candidates-schema-v1');
+    if (schemaResult.status !== 0) {
+      logStageFailure(stageName, 'validate-execution-candidates-schema-v1');
+      return { stage: stageName, status: 'failed', script: 'validate-execution-candidates-schema-v1', detail: null };
+    }
     let targetExecutionId = executionId;
     if (!targetExecutionId) {
       const candidate = selectSingleEligibleCandidate();
