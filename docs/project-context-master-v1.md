@@ -1370,9 +1370,9 @@ Operators should treat this runbook as the primary reference for using the wrapp
 
 # Prompt templates (markdown mirror)
 
-> **Last refreshed:** 2026-04-02
+> **Last refreshed:** 2026-04-03
 
-This file mirrors the prompt templates stored in Notion (and currently staged in `C:\AI.Ass\AI Prompt Templates.docx` for human reference). Until synchronized, refer to the source document for the authoritative text, but this markdown version is what the wrapper’s documentation and any scripts should read if Notion is unavailable.
+This file mirrors the prompt templates stored in Notion (and currently staged in C:/AI.Ass/AI Prompt Templates.docx for human reference). Run `node scripts/sync-prompt-templates-v1.js` whenever the staged document changes; the script converts that source into the exact `### <name>` / code-block schema the guard and retrieval helpers expect, then prints the full UTC timestamp it recorded. Until synchronization completes, treat the .docx file as the staging area and point readers/scripts at this markdown mirror only after it is refreshed.
 
 ## Templates
 
@@ -1382,44 +1382,44 @@ This file mirrors the prompt templates stored in Notion (and currently staged in
 We are starting a new subsystem thread.
 
 Previous subsystem is closed:
-- <PREVIOUS_SUBSYSTEM_NAME>
-- <PREVIOUS_SUBSYSTEM_STATUS>
-- <OPTIONAL_COMMIT_HASH>
+\- <PREVIOUS_SUBSYSTEM_NAME>
+\- <PREVIOUS_SUBSYSTEM_STATUS>
+\- <OPTIONAL_COMMIT_HASH>
 
 Treat the previous subsystem as closed unless a real defect is discovered.
 
 New subsystem:
-- <NEW_SUBSYSTEM_NAME>
+\- <NEW_SUBSYSTEM_NAME>
 
 Why this comes next:
-- <REASON_1>
-- <REASON_2>
-- <REASON_3>
+\- <REASON_1>
+\- <REASON_2>
+\- <REASON_3>
 
 Subsystem goal:
-<GOAL_DESCRIPTION>
+<ONE_PARAGRAPH_GOAL>
 
 Expected scope:
-- <SCOPE_ITEM>
-- <SCOPE_ITEM>
-- <SCOPE_ITEM>
+\- <SCOPE_ITEM>
+\- <SCOPE_ITEM>
+\- <SCOPE_ITEM>
 
 Primary files:
-- <PRIMARY_FILE>
-- <PRIMARY_FILE>
+\- <PRIMARY_FILE>
+\- <PRIMARY_FILE>
 
 Secondary files only if narrowly required:
-- <SECONDARY_FILE>
-- <SECONDARY_FILE>
+\- <SECONDARY_FILE>
+\- <SECONDARY_FILE>
 
 Out of scope unless explicitly required:
-- Broad refactors
-- Architecture redesign
-- Reporting/storage expansion
-- Approval/routing redesign
-- Reworking prior closed subsystems
-- Touching unrelated untracked files
-- Any broad feature growth beyond this subsystem
+\- Broad refactors
+\- Architecture redesign
+\- Reporting/storage expansion
+\- Approval/routing redesign
+\- Reworking prior closed subsystems
+\- Touching unrelated untracked files
+\- Any broad feature growth beyond this subsystem
 
 Execution instructions:
 1. Review the current implementation and current docs first.
@@ -1427,20 +1427,20 @@ Execution instructions:
 3. Define the narrow contract/behavior for this subsystem around the real implementation.
 4. Make only the smallest coherent changes needed.
 5. Update one canonical doc when the subsystem reaches milestone completeness.
-6. Keep the subsystem narrow and self-contained.
+6. Keep the subsystem narrow and self\-contained.
 7. Commit only when the subsystem stands on its own.
 
 Definition of done:
-- <DONE_ITEM>
-- <DONE_ITEM>
-- <DONE_ITEM>
-- subsystem is complete enough to stand alone as a milestone
+\- <DONE_ITEM>
+\- <DONE_ITEM>
+\- <DONE_ITEM>
+\- subsystem is complete enough to stand alone as a milestone
 
 At the end, report:
-- what changed
-- the canonical contract/behavior now in place
-- exact files changed
-- whether the subsystem is complete enough to commit
+\- what changed
+\- the canonical contract/behavior now in place
+\- exact files changed
+\- whether the subsystem is complete enough to commit
 ```
 
 ### Alignment review / planning prompt
@@ -1451,29 +1451,31 @@ Use this before work starts if you want Codex to inspect first and propose the s
 Before making changes, give me a subsystem alignment review for this subsystem:
 
 Subsystem:
-- <SUBSYSTEM_NAME>
+\- <SUBSYSTEM_NAME>
 
 Report:
-- current implementation behavior actually present
-- current doc behavior actually present
-- mismatches or ambiguities between docs and implementation
-- smallest coherent change set you recommend
-- expected file footprint
-- whether this still looks narrow and self-contained
+\- current implementation behavior actually present
+\- current doc behavior actually present
+\- mismatches or ambiguities between docs and implementation
+\- smallest coherent change set you recommend
+\- expected file footprint
+\- whether this still looks narrow and self\-contained
 
 Constraints:
-- do not make changes yet
-- do not broaden scope
-- ignore unrelated untracked files unless directly required
+\- do not make changes yet
+\- do not broaden scope
+\- ignore unrelated untracked files unless directly required
 ```
 
 ### Standard execution prompt
 > Template:
 ```
+Use this after alignment when you want Codex to actually do the subsystem.
+
 Proceed with the subsystem implementation.
 
 Subsystem:
-- <SUBSYSTEM_NAME>
+\- <SUBSYSTEM_NAME>
 
 Your task:
 1. Review the current implementation and docs first.
@@ -1485,25 +1487,27 @@ Your task:
 7. Do not declare completion unless substantive changes were actually made.
 
 At the end, report:
-- files changed
-- exact canonical contract/behavior now in place
-- whether the subsystem is complete enough to commit
+\- files changed
+\- exact canonical contract/behavior now in place
+\- whether the subsystem is complete enough to commit
 ```
 
-### Do not drift / finish the work prompt
+### “Do not drift / finish the work” prompt
 > Template:
 ```
+Use this when Codex asks you unnecessary questions or says “tell me which doc to touch.”
+
 Do not treat the previous reply as subsystem completion.
 
 This subsystem is not done until you actually make the narrow changes and summarize them.
 
 You do not need me to choose the canonical doc. Use the existing subsystem anchor:
 
-- Primary canonical doc: <PRIMARY_DOC>
-- Secondary alignment doc only if required: <SECONDARY_DOC>
+\- Primary canonical doc: <PRIMARY_DOC>
+\- Secondary alignment doc only if required: <SECONDARY_DOC>
 
 Subsystem:
-- <SUBSYSTEM_NAME>
+\- <SUBSYSTEM_NAME>
 
 Your task now:
 1. Review the current implementation and current docs.
@@ -1516,99 +1520,105 @@ Your task now:
 8. Do not declare completion unless substantive doc and/or code changes were actually made.
 
 Deliverable at the end:
-- files changed
-- exact canonical contract now in place
-- whether the subsystem is complete enough to commit
+\- files changed
+\- exact canonical contract now in place
+\- whether the subsystem is complete enough to commit
 ```
 
 ### Closeout prompt
 > Template:
 ```
+Use this when the subsystem work is done and you want Codex to finish it cleanly.
+
 This subsystem is complete. Close it out fully.
 
 Subsystem:
-- <SUBSYSTEM_NAME>
+\- <SUBSYSTEM_NAME>
 
 Confirmed completed work:
-- <CONFIRMED_CHANGE>
-- <CONFIRMED_CHANGE>
-- <CONFIRMED_CHANGE>
+\- <CONFIRMED_CHANGE>
+\- <CONFIRMED_CHANGE>
+\- <CONFIRMED_CHANGE>
 
 Canonical contract now in place:
-- <CONTRACT_POINT>
-- <CONTRACT_POINT>
-- <CONTRACT_POINT>
+\- <CONTRACT_POINT>
+\- <CONTRACT_POINT>
+\- <CONTRACT_POINT>
 
 Required before commit:
-- Run final narrow subsystem-relevant validation immediately before commit.
-- If code changed, rerun the key affected paths/checks.
-- If docs only changed, verify the docs against actual implementation/behavior.
-- Do not commit without final subsystem-relevant validation immediately beforehand.
+\- Run final narrow subsystem\-relevant validation immediately before commit.
+\- If code changed, rerun the key affected paths/checks.
+\- If docs only changed, verify the docs against actual implementation/behavior.
+\- Do not commit without final subsystem\-relevant validation immediately beforehand.
 
 Your tasks:
-1. Add any final milestone-level note to the canonical documentation if still needed.
+1. Add any final milestone\-level note to the canonical documentation if still needed.
 2. Run the final narrow validation for this subsystem immediately before commit.
 3. Stage only the subsystem files relevant to this milestone.
 4. Commit the subsystem with an appropriate commit message.
 5. Report back with:
-   - exact validation run before commit
-   - exact files staged
-   - commit hash
-   - whether the subsystem is now fully closed
+\- exact validation run before commit
+\- exact files staged
+\- commit hash
+\- whether the subsystem is now fully closed
 6. Then either:
-   - suggest the next narrow subsystem, or
-   - if there is genuine ambiguity, ask for direction only on the next subsystem choice
+\- suggest the next narrow subsystem, or
+\- if there is genuine ambiguity, ask for direction only on the next subsystem choice
 
 Constraints:
-- Do not broaden scope
-- Do not touch unrelated untracked files
-- Do not reopen prior closed subsystems unless a real defect is discovered
-- Keep this thread focused on closing this subsystem and teeing up the next one cleanly
+\- Do not broaden scope
+\- Do not touch unrelated untracked files
+\- Do not reopen prior closed subsystems unless a real defect is discovered
+\- Keep this thread focused on closing this subsystem and teeing up the next one cleanly
 
 Suggested commit message:
-- `<COMMIT_MESSAGE>`
+\- \`<COMMIT_MESSAGE>\`
 ```
 
-### Commit-only prompt
+### Commit\-only prompt
 > Template:
 ```
+Use this when the files are already staged and you just want the commit plus next\-step recommendation.
+
 Proceed with subsystem closeout.
 
 Files staged:
-- <STAGED_FILE>
-- <STAGED_FILE>
+\- <STAGED_FILE>
+\- <STAGED_FILE>
 
 Your tasks now:
 1. Commit the staged subsystem files with this message:
-   - `<COMMIT_MESSAGE>`
+\- \`<COMMIT_MESSAGE>\`
 2. Report back with:
-   - the final commit hash
-   - confirmation that this subsystem is fully closed
+\- the final commit hash
+\- confirmation that this subsystem is fully closed
 3. Then propose the next narrow subsystem in the same area.
 4. For that proposed next subsystem, include:
-   - subsystem name
-   - why it should come next
-   - expected file footprint
-   - whether it is likely doc-only, code+doc, or code-heavy
+\- subsystem name
+\- why it should come next
+\- expected file footprint
+\- whether it is likely doc\-only, code\+doc, or code\-heavy
 
 Constraints:
-- Do not modify additional files during this step
-- Do not touch unrelated untracked files
-- Do not broaden scope beyond commit + next-step recommendation
+\- Do not modify additional files during this step
+\- Do not touch unrelated untracked files
+\- Do not broaden scope beyond commit \+ next\-step recommendation
 ```
 
 ### Validation prompt
 > Template:
 ```
-Run final narrow subsystem-relevant validation for this subsystem.
+Use this when you want Codex to run checks before claiming completion.
+
+Run final narrow subsystem\-relevant validation for this subsystem.
 
 Subsystem:
-- <SUBSYSTEM_NAME>
+\- <SUBSYSTEM_NAME>
 
 Required validation:
-- <CHECK_1>
-- <CHECK_2>
-- <CHECK_3>
+\- <CHECK_1>
+\- <CHECK_2>
+\- <CHECK_3>
 
 Instructions:
 1. Run only the narrow checks relevant to this subsystem.
@@ -1623,180 +1633,201 @@ Do not broaden scope or touch unrelated files.
 ### Commit inconsistency / audit prompt
 > Template:
 ```
+Use this when Codex claims code \+ doc changes but only staged or committed one of them.
+
 The closeout is not yet trustworthy as written.
 
 You reported that this subsystem changed:
-- <FILE_A>
-- <FILE_B>
+\- <FILE_A>
+\- <FILE_B>
 
 But the staged or committed files do not match that claim.
 
 Your task:
 1. Check the exact git status of the relevant subsystem files.
 2. Report whether each file is:
-   - modified
-   - staged
-   - already committed
-   - unchanged
+\- modified
+\- staged
+\- already committed
+\- unchanged
 3. If a claimed subsystem file is not yet committed:
-   - stage only that file
-   - rerun the narrow relevant validation immediately before commit
-   - create a narrow follow-up commit
+\- stage only that file
+\- rerun the narrow relevant validation immediately before commit
+\- create a narrow follow\-up commit
 4. If the file was already committed earlier, report the exact commit hash that contains it.
 5. Restate the subsystem closeout accurately.
 
 Report back with:
-- exact status of each relevant file
-- whether the subsystem is actually fully closed
-- any follow-up commit hash if needed
+\- exact status of each relevant file
+\- whether the subsystem is actually fully closed
+\- any follow\-up commit hash if needed
 ```
 
 ### Next subsystem suggestion prompt
 > Template:
 ```
+Use this when you want Codex to recommend what comes next.
+
 Suggest the next narrow subsystem from here.
 
 Current closed subsystem:
-- <CURRENT_SUBSYSTEM_NAME>
+\- <CURRENT_SUBSYSTEM_NAME>
 
 Context:
-- <SHORT_CONTEXT>
-- <SHORT_CONTEXT>
+\- <SHORT_CONTEXT>
+\- <SHORT_CONTEXT>
 
 Your response must include:
-- subsystem name
-- why it should come next
-- subsystem goal
-- expected file footprint
-- likely type: doc-only, code+doc, or code-heavy
-- what is explicitly out of scope
-- why it is narrow enough to stand alone
+\- subsystem name
+\- why it should come next
+\- subsystem goal
+\- expected file footprint
+\- likely type: doc\-only, code\+doc, or code\-heavy
+\- what is explicitly out of scope
+\- why it is narrow enough to stand alone
 
 Prefer the next subsystem to stay adjacent to the current implementation area and avoid broad architecture growth.
 ```
 
-### Doc-only subsystem prompt
+### Doc\-only subsystem prompt
 > Template:
 ```
-We are starting a new doc-only subsystem thread.
+Use this when the next subsystem should be documentation only.
+
+We are starting a new doc\-only subsystem thread.
 
 Previous subsystem is closed:
-- <PREVIOUS_SUBSYSTEM>
+\- <PREVIOUS_SUBSYSTEM>
 
 New subsystem:
-- <DOC_ONLY_SUBSYSTEM_NAME>
+\- <DOC\-ONLY_SUBSYSTEM_NAME>
 
 Goal:
-Complete a narrow documentation-only subsystem that clarifies the current stable implementation and operator behavior without changing code.
+Complete a narrow documentation\-only subsystem that clarifies the current stable implementation and operator behavior without changing code.
 
 Primary file:
-- <PRIMARY_DOC>
+\- <PRIMARY_DOC>
 
 Secondary doc only if narrowly required:
-- <SECONDARY_DOC>
+\- <SECONDARY_DOC>
 
 Instructions:
 1. Review the current implementation and current docs first.
 2. Update the canonical documentation to reflect actual stable behavior.
 3. Do not change code unless a real defect is discovered.
-4. Keep the subsystem narrow and milestone-oriented.
+4. Keep the subsystem narrow and milestone\-oriented.
 5. Commit only when the doc update stands on its own.
 
 Definition of done:
-- canonical doc updated
-- doc accurately reflects current implementation
-- no unnecessary file churn
-- subsystem stands alone as a milestone
+\- canonical doc updated
+\- doc accurately reflects current implementation
+\- no unnecessary file churn
+\- subsystem stands alone as a milestone
 
 At the end, report:
-- what changed
-- exact files changed
-- whether it is complete enough to commit
+\- what changed
+\- exact files changed
+\- whether it is complete enough to commit
 ```
 
-### Code + doc subsystem prompt
+### Code \+ doc subsystem prompt
 > Template:
 ```
-We are starting a new code+doc subsystem thread.
+Use this when the next subsystem should include both behavior and documentation.
+
+We are starting a new code\+doc subsystem thread.
 
 Previous subsystem is closed:
-- <PREVIOUS_SUBSYSTEM>
+\- <PREVIOUS_SUBSYSTEM>
 
 New subsystem:
-- <CODE_DOC_SUBSYSTEM_NAME>
+\- <CODE\+DOC_SUBSYSTEM_NAME>
 
 Goal:
 Complete a narrow subsystem that makes a small implementation change and codifies the resulting behavior in the canonical documentation.
 
 Primary files:
-- <CODE_FILE>
-- <DOC_FILE>
+\- <CODE_FILE>
+\- <DOC_FILE>
 
 Secondary files only if narrowly required:
-- <OPTIONAL_FILE>
+\- <OPTIONAL_FILE>
 
 Instructions:
 1. Review the current implementation and docs first.
 2. Make the smallest coherent implementation change needed.
 3. Update the canonical doc to match the resulting behavior.
-4. Run final narrow subsystem-relevant validation before commit.
-5. Keep the subsystem narrow and self-contained.
+4. Run final narrow subsystem\-relevant validation before commit.
+5. Keep the subsystem narrow and self\-contained.
 
 Definition of done:
-- implementation behavior is explicit and stable
-- canonical doc is aligned
-- validation passes
-- subsystem stands alone as a milestone
+\- implementation behavior is explicit and stable
+\- canonical doc is aligned
+\- validation passes
+\- subsystem stands alone as a milestone
 
 At the end, report:
-- what changed
-- exact files changed
-- validation run
-- whether it is complete enough to commit
+\- what changed
+\- exact files changed
+\- validation run
+\- whether it is complete enough to commit
 ```
 
-### Standard one-line rules
+### Your standard one\-line validation rule
 > Template:
 ```
-Validation rule:
-Do not commit without final subsystem-relevant validation immediately beforehand.
+Paste this inside execution and closeout prompts:
 
-Anti-drift rule:
+Do not commit without final subsystem\-relevant validation immediately beforehand.
+```
+
+### Your standard one\-line anti\-drift rule
+> Template:
+```
+Paste this when needed:
+
 Ignore unrelated untracked files unless they are directly required for this subsystem.
+```
 
-Milestone rule:
+### Your standard one\-line milestone rule
+> Template:
+```
 Require a doc update when the subsystem reaches a meaningful milestone, not for every individual file.
 ```
 
 ### Recommended flow
 > Template:
 ```
+This is the practical order to use these prompts:
+
 1. New subsystem thread opener
 2. Alignment review prompt
 3. Standard execution prompt
 4. Validation prompt if needed
 5. Closeout prompt
-6. Commit-only prompt if files are already staged
+6. Commit\-only prompt if files are already staged
 7. Next subsystem suggestion prompt
 ```
 
 ### Minimal reusable skeleton
 > Template:
 ```
+If you want one very short template you can adapt quickly:
+
 New subsystem:
-- <NAME>
+\- <NAME>
 
 Goal:
-- <GOAL>
+\- <GOAL>
 
 Primary files:
-- <FILE>
-- <FILE>
+\- <FILE>
+\- <FILE>
 
 Out of scope:
-- broad refactors
-- unrelated files
-- architecture redesign
+\- broad refactors
+\- unrelated files
+\- architecture redesign
 
 Instructions:
 1. Review current code/docs first.
@@ -1807,456 +1838,10 @@ Instructions:
 6. Commit when complete enough to stand alone.
 
 Report back with:
-- what changed
-- files changed
-- validation run
-- commit hash
-- whether closed
-- suggested next narrow subsystem
+\- what changed
+\- files changed
+\- validation run
+\- commit hash
+\- whether closed
+\- suggested next narrow subsystem
 ```
-
-
----
-
-
-
----
-
-## Source: docs/reviews-approvals-required-fields-v1.md
-
-# Reviews / Approvals Required Fields v1
-
-## Purpose
-This document explains what fields must exist for the Reviews / Approvals pipeline to sync successfully and what additional narrative sections improve review quality.
-
-## Required Structured Properties for Valid Sync
-- Title
-- Status
-- Risk
-- Route Target
-- Needs Approval
-- Sync Status
-
-Missing any of the fields above may block export validation and prevent the item from being processed.
-
-## Recommended Narrative Sections for High-Quality Review Items
-- Summary
-- Full Context
-- Proposed Action
-- Why This Was Triggered
-- Risk Assessment
-- Suggested Route
-- Affected Components
-- Operator Notes
-- Revised Instructions
-- Final Outcome
-
-The pipeline does not strictly require these narrative sections, but leaving them blank reduces how useful the review page is to operators and approvers.
-
-## Operator Rule
-- Ensure every real review item provides all of the required structured fields.
-- Mark templates or examples with Sync Status = Ignore so they are excluded from the mirror/export pipeline.
-- Fill the narrative sections whenever a review needs meaningful context, risk explanation, or discussion about the requested action.
-
-
----
-
-## Source: docs/routing-decision-contract-v1.md
-
-# Purpose
-This file defines how the local assistant should make routing decisions so every task follows the same local-first logic.
-
-# Inputs
-- Task title  
-- Task summary  
-- Task type  
-- Risk level  
-- Scope size  
-- Whether code changes are requested  
-- Whether reasoning/planning is the main need  
-- Whether approval is required  
-- Prior similar outcomes (if available)
-
-# Route to Local
-Use the local assistant for simple or moderate work such as drafting, summarization, organization, low-risk analysis, and tasks strongly supported by local context and prior patterns.
-
-# Route to Claude
-Use Claude for reasoning-heavy work, architecture tradeoffs, ambiguous or conceptual tasks, decomposition, and requests that benefit from a second-opinion analysis layer.
-
-# Route to Codex
-Use Codex for implementation-heavy coding tasks, patching, multi-file edits, repo-aware code changes, or generally execution-focused software work.
-
-# Stop for Approval
-Pause and request approval when risk is medium or high and action is not clearly pre-approved, routing is unclear, architecture or guardrails may change, or an external escalation would be sensitive or costly.
-
-# Output JSON Shape
-```
-{
-  "task_id": "",
-  "classification": "",
-  "risk": "",
-  "recommended_route": "",
-  "requires_approval": false,
-  "reasoning": "",
-  "notes": "",
-  "based_on": {
-    "code_heavy": false,
-    "reasoning_heavy": false,
-    "ambiguous": false,
-    "multi_file": false,
-    "prior_pattern_used": false
-  }
-}
-```
-
-# Rules
-- Local-first by default.  
-- Higher risk wins when the classification is uncertain.  
-- Approval blocks execution.  
-- Routing decisions must be explainable and reviewable.
-
----
-
-## Source: docs/write-completion-meaning-v1.md
-
-# Write Completion Meaning v1
-
-## Purpose
-Clarify the supervised workflow meanings of write-attempted, write-succeeded, and write-verified for real executions.
-
-## Write Attempted
-- A real write executor ran.
-- A file may or may not have been changed.
-- Write-attempted alone does not guarantee trust in the artifact.
-
-## Write Succeeded
-- A real file change occurred.
-- The execution log records the run as success.
-- This still does not guarantee post-write verification.
-
-## Write Verified
-- The write succeeded.
-- A post-write verification step was attempted.
-- The verification step passed.
-- This is the strongest v1 completion signal for a real write.
-
-## Current Verified Milestone
-- execution_id: exec-1775022550114-1
-- latest verified write log: write-1775059101115
-- target file: scripts/validate-json-lane.js
-
-## Guardrails
-- Verified writes do not automatically widen the allowed scope.
-- Every future candidate must repeat approval, readonly, dry-run, and verification.
-- Keep write scope narrow in v1.
-
-## Fidelity note
-`scripts/execute-local-write-v1.js` previously insisted the generated stdout for `scripts/validate-codex-handoff-packets-v1.js` repeat the literal basename, so compliant output kept getting rejected even after the validator itself was correct. The gate was relaxed just for that target: a handoff-keyword match is now enough while all other targets still require their own file-specific checks. The verified write log `write-1775083892143` demonstrates the corrected path.
-
-## Execution-candidate reporting & validation layer
-AI.Ass now publishes a full surface of execution-candidate visibility tools so operators can trust the pipeline end-to-end:
-
-- **Coverage data** (e.g., `summarize-execution-candidate-coverage-buckets-v1.js`) reports how many candidates are approved, pending, rejected, unreviewed, or anomalous, plus any tooling inventory gaps.
-- **Validator suite** tools (e.g., `validate-all-review-lanes-state-v1.js`, `validate-execution-candidate-ops-status-v1.js`, `validate-execution-candidate-status-output-alignment-v1.js`) routinely run to confirm every lane and tool remains healthy.
-- **Meta/health outputs** (JSON `summarize-execution-candidate-health-report-v1.js`, Markdown `summarize-execution-candidate-health-report-markdown-v1.js`, and the operator brief `summarize-execution-candidate-handoff-brief-v1.js`) package the up-to-date counts, tooling health, validator suite status, and output alignment into single artifacts.
-- **Alignment validators** (e.g., `validate-execution-candidate-health-report-output-alignment-v1.js`, `validate-execution-candidate-meta-report-output-alignment-v1.js`) ensure every surface agrees with the canonical state, and the inventory/manifest/catalog scripts describe the available tooling so automation can trust the suite composition.
-
-This layer is stable (all validators currently pass) and designed to let operators report the current health, tooling readiness, and approval coverage of execution candidates without re-running the models themselves.
-
-
----
-
-## Source: docs/write-execution-classification-rules-v1.md
-
-# Write Execution Classification Rules v1
-
-## Purpose
-Defines how review classification affects write-enabled execution eligibility in AI.Ass.
-
-## Current Problem
-Narrowed, one-file, write-safe follow-up tasks may still be classified as review-required instead of approval-required, meaning the current write-eligibility screen may block them even when they are narrow and operator-approved.
-
-## Recommended Rule
-- `approval-required` items may be write-eligible when operator-approved and otherwise meet all eligibility criteria.
-- `review-required` items may also be write-eligible when operator-approved, but only if they are narrow, write-safe, and pass all standard checks.
-- Broad or risky tasks should remain in the `approval-required` path.
-
-## Narrow Write-Safe Criteria
-- One-file or tightly bounded scope.
-- Concrete target files.
-- Implementation-oriented next step.
-- No routing, architecture, guardrail, approval, or integration changes.
-- Successful readonly execution check completed.
-
-## Guardrails
-- `review-required` does not automatically mean write-eligible.
-- Operator approval is still required.
-- All write-safety rules still apply.
-- Broad tasks remain blocked until they are narrowed or reclassified.
-
----
-
-## Source: docs/write-execution-eligibility-rules-v1.md
-
-# Write Execution Eligibility Rules v1
-
-## Purpose
-Defines the final rules that determine when an execution candidate is eligible for a write-enabled executor.
-
-## Required Preconditions
-A candidate is eligible for write-enabled execution only when:
-- review classification = approval-required
-- operator_status = approved
-- execution_status = execution_prepared
-- a full handoff chain exists (payload, handoff packet, preview)
-- a successful readonly execution log exists for the same execution_id
-- the operator explicitly authorizes write-enabled execution
-
-## Allowed v1 Scope
-Write-enabled execution should be limited to:
-- single-file or tightly bounded file changes
-- clearly identified target paths
-- implementation-oriented steps only
-
-## Blocked v1 Scope
-Write-enabled execution must remain blocked for:
-- broad multi-file refactors
-- architecture, routing, guardrail, or approval system edits
-- external integration work
-- ambiguous or analysis-only guidance
-- candidates without concrete file targets
-
-## Operator Rule
-- Readonly success does not automatically grant write approval.
-- Operators must explicitly trigger the write-enabled executor.
-- Execution must remain attributable and logged.
-
-## Guardrails
-- No automatic retries.
-- No silent file writes.
-- No approval bypass.
-- Always start with the smallest safe change.
-
----
-
-## Source: docs/write-safe-task-shaping-v1.md
-
-# Write-Safe Task Shaping v1
-
-## Purpose
-Explains how to reshape or constrain a broad approved execution candidate into a narrowly scoped, write-safe task before any future write-enabled executor runs.
-
-## What Counts as Write-Safe in v1
-Write-safe tasks should be:
-- narrowly scoped
-- implementation-oriented
-- limited to one file or a tightly bounded set of files
-- concrete and reviewable
-- free of architecture, routing, guardrail, or approval system changes
-
-## What Is Not Write-Safe in v1
-The following shapes must be blocked:
-- routing changes
-- architecture changes
-- guardrail changes
-- approval workflow changes
-- broad refactors
-- external integration work
-- ambiguous or analysis-only recommendations
-
-## Narrowing Rules
-When a candidate is too broad, narrow it by:
-- selecting one concrete file target
-- reducing the goal to one bounded implementation step
-- removing architecture or policy implications
-- making the next step explicit and practical
-
-## Examples
-- Allowed: add a validator for one existing JSON lane file.
-- Allowed: add a single status-report script under `scripts/`.
-- Blocked: redesign routing logic.
-- Blocked: modify approval rules.
-- Blocked: broad integration with external services.
-
-## Operator Rule
-- Write eligibility requires both approval and a narrow task shape.
-- Approval alone does not justify write mode.
-- If a candidate is too broad, reshape it into a narrower follow-up task before allowing future execution.
-
----
-
-## Source: docs/first-real-write-run-checklist-v1.md
-
-# First Real Write Run Checklist v1
-
-## Candidate Identity
-- Execution ID: [insert execution id]
-- Target file: [insert allowed target, e.g., scripts/validate-json-lane.js]
-- Recommended next step: [from the latest assistant decision]
-
-## Preconditions
-- [ ] Approved review exists (approval- or review-required, operator-status approved)
-- [ ] Execution candidate is marked execution_prepared
-- [ ] Successful qwen-readonly log exists for this execution_id
-- [ ] Successful qwen-write-dryrun log exists for this execution_id
-- [ ] Exactly one allowed target file (scripts/ or 
-untime/) is specified
-- [ ] Payload/handoff/preview chain is present and up-to-date
-
-## Operator Confirmation
-- [ ] Task is still narrowly scoped and write-safe
-- [ ] Target file is acceptable for v1 (script/runtime level)
-- [ ] No architecture, routing, approval, or guardrail changes are implied
-- [ ] Operator explicitly authorizes this first real write run
-
-## Expected Result
-- Only the specified file may be written
-- A qwen-write execution log must be created
-- Any failure must still be logged with execution_result
-- No additional files should change in this run
-
----
-
-## Source: docs/local-model-run-comparison-v1.md
-
-# Local Model Run Comparison v1\n\n## Purpose\nRecord the first runtime comparison between local model candidates using 
-untime/task-context.v1.json.\n\n## Models Compared\n- qwen2.5-coder:7b\n- deepseek-coder:6.7b\n\n## Input Used\n- 
-untime/task-context.v1.json\n\n## Output Files\n- 
-untime/local-assistant-response.v1.txt\n- 
-untime/local-assistant-response.deepseek.v1.txt\n\n## Comparison Summary\n- Both models completed successfully and produced practical next-step guidance.\n- Qwen2.5-Coder 7B remains the recommended first default because it performed better across earlier benchmark tasks and already delivers a usable runtime response on the deterministic context.\n- DeepSeek 6.7B stays installed as a comparison/fallback candidate and can be used for second opinions or further evaluation.\n\n## Temporary Default Decision\n- Current temporary default local assistant model: qwen2.5-coder:7b.\n- deepseek-coder:6.7b remains available for comparison and second-opinion runs.\n
-
----
-
-## Source: docs/narrowed-followup-promotion-flow-v1.md
-
-# Narrowed Follow-Up Promotion Flow v1
-
-## Purpose
-Ensures narrowed follow-up tasks become fresh downstream chains rather than overwriting their broad source candidates.
-
-## Rule
-- A narrowed follow-up task does not replace the original execution candidate.
-- It becomes a new active task input.
-- It must generate a new assistant decision.
-- That new decision must go through its own review/approval/execution-candidate flow.
-
-## Why
-- The original broad candidate should remain intact for historical traceability.
-- The narrowed task is a separate, safer path toward write-enabled execution.
-- Write eligibility should evaluate the narrowed chain, not the original broad chain.
-
-## Minimal Flow
-1. Promote the follow-up to `runtime/task-input.v1.json`.
-2. Build task context.
-3. Run the structured assistant decision.
-4. Refresh assistant decisions.
-5. Classify the newly created decision.
-6. Review/approve the new review item.
-7. Promote the approved review to a new execution candidate.
-8. Evaluate write eligibility on that new candidate.
-
-## Guardrails
-- Do not overwrite historical broad candidates.
-- Keep the lineage clear between the source execution and the narrowed follow-up.
-- Write eligibility must consider only the new narrowed chain once it is in place.
-
----
-
-## Source: docs/second-write-task-candidate-criteria-v1.md
-
-# Second Write Task Candidate Criteria v1
-
-## Purpose
-Define how to select the next narrow write-capable task after the first verified real write.
-
-## Required Criteria
-- Narrowly scoped
-- One-file only
-- Implementation-oriented
-- Easy to verify after writing
-- Low risk
-- Free of architecture, routing, guardrail, approval, or external integration changes
-
-## Preferred File Types
-- One validator script
-- One status-report script
-- One list/reporting script
-- One small runtime helper
-- One narrowly scoped documentation helper with clear verification
-
-## Blocked Candidates
-- Multi-file changes
-- Architecture updates
-- Routing or approval logic changes
-- Execution-control changes
-- Integration work
-- Ambiguous improve or refactor tasks
-
-## Selection Rule
-- Prefer tasks similar in risk and scope to the first verified write.
-- Prefer targets under scripts/ or runtime/.
-- Prefer work with a straightforward verification command.
-
-## Operator Guidance
-- The second task should prove repeatability, not broaden scope.
-- Choose the smallest useful next task.
-- Keep lineage and logging intact.
-
-
----
-
-## Source: docs/third-candidate-executor-payload-helper-limit-note-v1.md
-
-# Third Candidate Executor Payload Helper Limit Note v1
-
-## Purpose
-Note why the latest executor-payloads-helper candidate cannot progress.
-
-## Observed Limitation
-The follow-up targeting scripts/validate-executor-payloads-helper-v1.js generated an informational, analysis-only decision with no files_to_create_or_update.
-
-## Current Conclusion
-Continue with validator/script-hardening work rather than schema-helper tasks that keep collapsing into analysis-only mode.
-
-## Replacement Recommendation
-Switch to a third candidate that updates an existing verified script with one explicit behavioral rule (e.g., a new exit code path).
-
-
----
-
-## Source: docs/third-candidate-reporting-limit-note-v1.md
-
-# Third Candidate Reporting Limit Note v1
-
-## Purpose
-Explain why the current reporting/filtering third write candidate cannot advance through the supervised execution loop.
-
-## Observed Limitation
-The latest narrowed follow-up (list-approved-awaiting-execution-v1.js) keeps producing informational, analysis-only decisions with no files_to_create_or_update under the current local decision flow, so it never reaches approval/execution.
-
-## Current Conclusion
-This is not a failure of the write pipeline itself; validator-style and narrowly scoped script-hardening tasks have proven much more reliable for the write-safe progression.
-
-## Next Recommendation
-Replace the reporting candidate with another one-file, implementation-oriented validator or tooling script under scripts/ or runtime/ that can be verified deterministically.
-
-
----
-
-## Source: docs/third-candidate-validate-json-lane-limit-note-v1.md
-
-# Third Candidate Validate JSON Lane Limit Note v1
-
-## Purpose
-Document why the scripts/validate-json-lane.js third candidate stopped after repeated safe failures.
-
-## Observed Limitation
-The candidate targeted scripts/validate-json-lane.js with missing-file exit code 2, invalid JSON exit code 1, and valid JSON printing "valid" but still failed the fidelity gate.
-
-## Current Conclusion
-The execution spine, prompt shaping, and fidelity protections worked as designed; repeated runs were blocked until the content matches the refined expectations.
-
-## Recommendation
-Stop advancing this candidate; two verified writes already exist, so pick a fresh narrow candidate instead of pushing this one further.
-
-

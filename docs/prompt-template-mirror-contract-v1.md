@@ -15,6 +15,8 @@ This document defines how the prompt-template system is structured between Notio
 6. **What is not implemented yet:** No automation reads or writes Notion directly, no automated comparison exists, and no repo script modifies prompts. The current doc-only contract ensures clarity while keeping automation scoped to future work.
 7. **Operational completeness rule:** `docs/prompt-templates.md` is only a valid operational mirror when every retained template section contains real usable body text. Placeholder-only bodies such as `<ALIGNMENT_REVIEW_PROMPT_TEXT>` are not valid mirror content and must be populated from existing source truth or removed from the active mirror until real content exists.
 
+Run `node scripts/sync-prompt-templates-v1.js` whenever the staged `C:/AI.Ass/AI Prompt Templates.docx` changes. The script converts each numbered template in the `.docx` into a `### <name>` section, wraps the body in a fenced code block, normalizes every placeholder to the uppercase-underscore form expected by `scripts/build-prompt-from-template-v1.js`, and rewrites `docs/prompt-templates.md` with the new `> **Last refreshed:** YYYY-MM-DD` metadata so consumers always see the latest mirror state.
+
 ## References in other docs
 - Keep the “Reference materials” section in `docs/operator-workflow-wrapper-spec-v1.md` pointing to `C:\AI.Ass\AI Prompt Templates.docx` until a more permanent mirror is populated.
 - Document that `docs/prompt-templates.md` now holds the current markdown mirror; it should include a last-refreshed note and point back to the Notion/canonical source. That mirror exists for offline/automation usage until a sync process keeps it in sync with Notion.
@@ -54,10 +56,9 @@ This document defines how the prompt-template system is structured between Notio
 - **When to refresh:** Update the markdown mirror whenever the Notion prompt-template page or the draft `C:\AI.Ass\AI Prompt Templates.docx` changes meaningfully (e.g., adding a new template, renaming a section, or adjusting the rules). Treat every substantive Notion edit as a trigger for a mirror refresh.
 - **Who refreshes it:** The operator or maintainer who makes the Notion change should also refresh the mirror. If Notion edits come via a shared review, the reviewer/owner that approves the change must also update the markdown mirror and note it in the change log.
 - **Manual steps:**
-  1. Export the current Notion templates (or copy from `AI Prompt Templates.docx`) into the repository, replacing the contents under the appropriate sections in `docs/prompt-templates.md` while preserving the `> Template:` / code-block schema.
-  2. Update the top note `> **Last refreshed:**` with the current ISO date (e.g., `2026-04-01`).
-  3. Run `node scripts/check-prompt-template-mirror-v1.js` to verify the mirror file exists and the metadata parses cleanly.
-  4. Review the diff to ensure no accidental formatting or content drift occurred.
-- **Guard failure handling:** If the guard reports missing metadata or unparseable dates, fix the metadata line before committing (ensure the note follows `> **Last refreshed:** YYYY-MM-DD`). If the mirror file itself is missing, recreate it from the latest Notion export before re-running the guard.
+  1. Update `AI Prompt Templates.docx` as needed, then run `node scripts/sync-prompt-templates-v1.js` to regenerate `docs/prompt-templates.md` with the mirrored templates, normalized placeholders, and refreshed metadata.
+  2. Run `node scripts/check-prompt-template-mirror-v1.js` to confirm the mirror exists, the metadata is parseable, and no placeholder-only sections slipped in.
+  3. Review the diff to ensure the automated mirror refresh matches expectations and no formatting drift occurred.
+- **Guard failure handling:** If the guard reports missing metadata or unparseable dates, re-run `scripts/sync-prompt-templates-v1.js` so it can rewrite the note and schema, then rerun the guard. If the guard still fails, inspect the metadata line (it must follow `> **Last refreshed:** YYYY-MM-DD`) and ensure no template section contains only leftover placeholder markers before rerunning.
 - **Commit/closeout notes:** When closing a subsystem or prompt-template change that only refreshes the mirror, mention “Mirror refresh” or similar in the closeout summary/commit message (e.g., “Mirror refresh: update prompt templates from Notion”). This keeps downstream guidebooks aware that the mirror now reflects the latest state.
 
