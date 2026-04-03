@@ -97,6 +97,11 @@ function runStage(stageName) {
     try {
       runScript(script);
     } catch (err) {
+      if (err.message === 'check-prompt-template-mirror-v1') {
+        console.error(
+          'Prompt-template mirror guard failed. Refresh `AI Prompt Templates.docx`, rerun `node scripts/sync-prompt-templates-v1.js`, then rerun this wrapper stage.'
+        );
+      }
       logStageFailure(stageName, err.message);
       return { stage: stageName, status: 'failed', script: err.message };
     }
