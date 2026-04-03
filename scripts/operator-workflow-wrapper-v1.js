@@ -204,6 +204,11 @@ function runStage(stageName) {
       logStageFailure(stageName, 'validate-eligible-candidate-decision-linkage-v1');
       return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-decision-linkage-v1', detail: null };
     }
+    const writeResult = runScript('validate-eligible-candidate-no-prior-write-v1');
+    if (writeResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-no-prior-write-v1');
+      return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-no-prior-write-v1', detail: null };
+    }
     let targetExecutionId = executionId;
     if (!targetExecutionId) {
       const candidate = selectSingleEligibleCandidate();
