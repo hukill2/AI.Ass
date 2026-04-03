@@ -54,9 +54,14 @@ const stageScripts = {
 const args = process.argv.slice(2);
 const stageNames = Object.keys(stageScripts);
 let stage = 'all';
+let executionId;
 const stageArgIndex = args.findIndex((value) => value.startsWith('--stage='));
+const executionIdArgIndex = args.findIndex((value) => value.startsWith('--execution-id='));
 if (stageArgIndex >= 0) {
   stage = args[stageArgIndex].split('=')[1];
+}
+if (executionIdArgIndex >= 0) {
+  executionId = args[executionIdArgIndex].split('=')[1];
 }
 
 function printUsage() {
@@ -72,9 +77,9 @@ if (args.includes('--help') || args.includes('-h')) {
   process.exit(0);
 }
 
-function runScript(name) {
+function runScript(name, scriptArgs = []) {
   const scriptPath = path.resolve(__dirname, `${name}.js`);
-  const result = spawnSync(process.execPath, [scriptPath], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [scriptPath, ...scriptArgs], { encoding: 'utf8' });
   if (result.stdout) {
     process.stdout.write(result.stdout);
   }
@@ -134,6 +139,17 @@ function parseGuardDetail(output) {
 
 function runStage(stageName) {
   logStageStart(stageName);
+  if (stageName === 'preflight') {
+    if (executionId) {
+      const readyResult = runScript('validate-local-write-readiness-v1', [`--execution-id=${executionId}`]);
+      if (readyResult.status !== 0) {
+        logStageFailure(stageName, 'validate-local-write-readiness-v1');
+        return { stage: stageName, status: 'failed', script: 'validate-local-write-readiness-v1', detail: null };
+      }
+    } else {
+      console.log('Skipping local write readiness check: no --execution-id provided.');
+    }
+  }
   for (const script of stageScripts[stageName]) {
     const result = runScript(script);
     if (result.status !== 0) {
