@@ -2,6 +2,13 @@
 
 This page is the single entry point for the prompt-template lane. Use it to see each current artifact, where the mirror lives, how the guard runs, and what operator guidance already exists.
 
+## When to open what
+- Need the source text? Start with `C:\AI.Ass\AI Prompt Templates.docx` first.
+- Looking for the mirror that scripts read? Open `docs/prompt-templates.md` and rerun `scripts/sync-prompt-templates-v1.js` if the lookups are stale.
+- Hit the guard in the wrapper? Jump to `docs/prompt-template-guard-quick-reference-v1.md` for the failure line plus commands, then follow the full checklist in `docs/prompt-template-guard-troubleshooting-v1.md` if the issue persists.
+- Wondering how the guard fits into the wrapper or runbook? Consult `docs/operator-workflow-wrapper-spec-v1.md` and `docs/operator-runbook-and-usage-layer-v1.md`.
+- Want the shared context summary? Use `docs/project-context-master-v1.md` after reviewing this index so future threads know where the lane artifacts live.
+
 ## Source & mirror
 - `C:\AI.Ass\AI Prompt Templates.docx`: human staging/reference source; update it whenever template text changes.
 - `docs/prompt-templates.md`: markdown mirror consumed by prompt scripts; `scripts/sync-prompt-templates-v1.js` regenerates it from the `.docx` source with the canonical heading/code block schema and `> **Last refreshed:** YYYY-MM-DD` metadata.
