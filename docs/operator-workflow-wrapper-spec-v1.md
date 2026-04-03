@@ -21,7 +21,7 @@ This spec defines a minimal “operator workflow wrapper” that coordinates the
 - Environment must point to the repo root (scripts expect standard runtime/*.json files).
 - The wrapper currently accepts `--stage`, an optional `--execution-id=<id>` (used by select scripts described below), plus `--help` / `-h`.
   * When `--execution-id` is provided, the preflight stage runs the local write readiness checker before the standard preflight validators so operators catch missing write-lane artifacts early.
-  * When the flag is absent, the preflight stage logs `Skipping local write readiness check: no --execution-id provided.` and continues to the other validators without failing.
+  * When the flag is absent, the wrapper inspects `runtime/execution-candidates.v1.json` to see if exactly one candidate is `awaiting_execution` or `execution_prepared`. If such a single eligible candidate exists, the wrapper auto-selects that execution ID and runs the readiness checker; otherwise it logs `Skipping local write readiness check: ...` (zero or multiple eligible candidates) and proceeds with the remaining validators without failing.
 
 ## Reference materials
 - The AI prompt templates for Codex, Claude, and Claude Code live at `C:\AI.Ass\AI Prompt Templates.docx`. Refer to that document when gathering standardized wording or context before having the assistant reach out to Codex/Claude. No automation currently consumes it yet; the doc simply centralizes the text for future use.

@@ -137,17 +137,60 @@ function parseGuardDetail(output) {
   }
 }
 
+function loadCandidates() {
+  try {
+    const content = fs.readFileSync(path.resolve(__dirname, '../runtime/execution-candidates.v1.json'), 'utf8');
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed.candidates) ? parsed.candidates : [];
+  } catch {
+    return [];
+  }
+}
+
+function selectSingleEligibleCandidate() {
+  const candidates = loadCandidates();
+  const eligible = candidates.filter(
+    (candidate) =>
+      candidate &&
+      typeof candidate.execution_status === 'string' &&
+      ['awaiting_execution', 'execution_prepared'].includes(candidate.execution_status)
+  );
+  if (eligible.length === 1) {
+    return eligible[0];
+  }
+  return null;
+}
+
 function runStage(stageName) {
   logStageStart(stageName);
   if (stageName === 'preflight') {
-    if (executionId) {
-      const readyResult = runScript('validate-local-write-readiness-v1', [`--execution-id=${executionId}`]);
+    let targetExecutionId = executionId;
+    if (!targetExecutionId) {
+      const candidate = selectSingleEligibleCandidate();
+      if (candidate) {
+        targetExecutionId = candidate.execution_id;
+        console.log(`Auto-selected execution_id=${targetExecutionId} for the write readiness check.`);
+      } else {
+        const candidates = loadCandidates();
+        const eligibleCount = candidates.filter(
+          (c) =>
+            c &&
+            typeof c.execution_status === 'string' &&
+            ['awaiting_execution', 'execution_prepared'].includes(c.execution_status)
+        ).length;
+        if (eligibleCount === 0) {
+          console.log('Skipping local write readiness check: no eligible execution candidates found.');
+        } else {
+          console.log('Skipping local write readiness check: multiple eligible execution candidates present.');
+        }
+      }
+    }
+    if (targetExecutionId) {
+      const readyResult = runScript('validate-local-write-readiness-v1', [`--execution-id=${targetExecutionId}`]);
       if (readyResult.status !== 0) {
         logStageFailure(stageName, 'validate-local-write-readiness-v1');
         return { stage: stageName, status: 'failed', script: 'validate-local-write-readiness-v1', detail: null };
       }
-    } else {
-      console.log('Skipping local write readiness check: no --execution-id provided.');
     }
   }
   for (const script of stageScripts[stageName]) {
