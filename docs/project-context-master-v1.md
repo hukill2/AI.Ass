@@ -1241,6 +1241,7 @@ Each follow-up task record must include:
 This spec defines a minimal “operator workflow wrapper” that coordinates the existing scripts in the reporting/validation/meta stack. Its job is to give operators one consistent entrypoint for the preflight → readiness → execution-prep → post-verification flow described elsewhere. The latest spec iteration describes the eligible-candidate readonly-log guard chain (payload → decision → execution_id → handoff/preview → timestamp) so all stakeholders see the same canonical data-integrity sequence before the remaining validators run.
 
 The preflight checklist now includes the newly added `validate-eligible-candidate-readonly-log-execution-id-match-v1.js` guard, so the wrapper explicitly confirms a successful `qwen-readonly` log shares the same execution identity as the chosen candidate before continuing through the handoff/review validation chain.
+The preceding `validate-eligible-candidate-payload-existence-v1.js` guard makes that chain more deterministic by ensuring the eligible candidate’s `payload_id` actually resolves to one of the executor payload records before the readonly log matching runs.
 The subsequent `validate-eligible-candidate-readonly-log-timestamp-guard-v1.js` now insists the eligible candidate exposes a valid `updated_at` timestamp before comparing freshness, so missing or invalid timestamps stop preflight rather than producing an ambiguous comparison.
 
 ## Purpose

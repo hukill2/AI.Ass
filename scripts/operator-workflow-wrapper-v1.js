@@ -184,6 +184,16 @@ function runStage(stageName) {
       logStageFailure(stageName, 'validate-eligible-candidate-payloads-v1');
       return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-payloads-v1', detail: null };
     }
+    const payloadExistenceResult = runScript('validate-eligible-candidate-payload-existence-v1');
+    if (payloadExistenceResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-payload-existence-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-payload-existence-v1',
+        detail: null
+      };
+    }
     const readonlyMatchResult = runScript('validate-eligible-candidate-readonly-log-payload-match-v1');
     if (readonlyMatchResult.status !== 0) {
       logStageFailure(stageName, 'validate-eligible-candidate-readonly-log-payload-match-v1');
@@ -211,7 +221,7 @@ function runStage(stageName) {
         stage: stageName,
         status: 'failed',
         script: 'validate-eligible-candidate-readonly-log-execution-id-match-v1',
-        detail: null
+      detail: null
       };
     }
     const readonlyHandoffResult = runScript('validate-eligible-candidate-readonly-log-handoff-preview-match-v1');
@@ -221,6 +231,16 @@ function runStage(stageName) {
         stage: stageName,
         status: 'failed',
         script: 'validate-eligible-candidate-readonly-log-handoff-preview-match-v1',
+        detail: null
+      };
+    }
+    const readonlyFreshnessResult = runScript('validate-eligible-candidate-readonly-log-freshness-guard-v1');
+    if (readonlyFreshnessResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-readonly-log-freshness-guard-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-readonly-log-freshness-guard-v1',
         detail: null
       };
     }

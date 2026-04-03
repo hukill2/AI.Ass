@@ -6,7 +6,7 @@
       "review_id": "review-1775016227271",
       "decision_id": "dec-1775016225064",
       "task_id": "task-001",
-    "execution_status": "execution_prepared",
+      "execution_status": "execution_prepared",
       "recommended_next_step": "Implement the step that reads mirrored files and prepares context for routing.",
       "files_to_create_or_update": [
         "runtime/read_mirrored_files.js"
@@ -24,14 +24,15 @@
       ],
       "operator_notes": "Explicit operator approval pending execution layer only.",
       "created_at": "2026-04-01T04:19:31.168Z",
-      "updated_at": "2026-04-01T05:04:35.313Z"
+      "updated_at": "2026-04-01T05:04:35.313Z",
+      "payload_id": "payload-1775017915696"
     },
     {
       "execution_id": "exec-1775022550114-1",
       "review_id": "review-1775022185635",
       "decision_id": "dec-1775022183358",
       "task_id": "task-001",
-    "execution_status": "awaiting_execution",
+      "execution_status": "awaiting_execution",
       "recommended_next_step": "Create a validator script for the existing JSON lane.",
       "files_to_create_or_update": [
         "scripts/validate-json-lane.js"
@@ -43,7 +44,8 @@
       ],
       "operator_notes": "Approved narrowed write-safe follow-up for new execution path.",
       "created_at": "2026-04-01T05:49:10.114Z",
-      "updated_at": "2026-04-01T14:28:59.281Z"
+      "updated_at": "2026-04-01T14:28:59.281Z",
+      "payload_id": "payload-1775053635511"
     },
     {
       "execution_id": "exec-1775060315230-1",
@@ -68,14 +70,15 @@
       ],
       "operator_notes": "Approved second narrow write-safe follow-up for codex handoff validator.",
       "created_at": "2026-04-01T16:18:35.230Z",
-      "updated_at": "2026-04-01T16:22:35.025Z"
+      "updated_at": "2026-04-01T16:22:35.025Z",
+      "payload_id": "payload-1775060383699"
     },
     {
-    "execution_id": "exec-1775061631751-1",
-    "review_id": "review-1775061114375",
-    "decision_id": "dec-1775061111940",
-    "task_id": "task-001",
-    "execution_status": "execution_prepared",
+      "execution_id": "exec-1775061631751-1",
+      "review_id": "review-1775061114375",
+      "decision_id": "dec-1775061111940",
+      "task_id": "task-001",
+      "execution_status": "execution_prepared",
       "recommended_next_step": "Update scripts/validate-codex-handoff-packets-v1.js to require executor_target, payload_id, and execution_id in each handoff packet.",
       "files_to_create_or_update": [
         "scripts/validate-codex-handoff-packets-v1.js"
@@ -87,7 +90,8 @@
       ],
       "operator_notes": "Approved second concrete validator enhancement.",
       "created_at": "2026-04-01T16:40:31.751Z",
-      "updated_at": "2026-04-01T16:44:20.101Z"
+      "updated_at": "2026-04-01T16:44:20.101Z",
+      "payload_id": "payload-1775061739812"
     },
     {
       "execution_id": "exec-1775064296687-1",
@@ -112,7 +116,8 @@
       ],
       "operator_notes": "Approved third concrete reporting helper update.",
       "created_at": "2026-04-01T17:24:56.687Z",
-      "updated_at": "2026-04-01T17:29:14.105Z"
+      "updated_at": "2026-04-01T17:29:14.105Z",
+      "payload_id": "payload-1775064396369"
     },
     {
       "execution_id": "exec-1775065549613-1",
@@ -131,7 +136,8 @@
       ],
       "operator_notes": "Approved replacement third validator helper.",
       "created_at": "2026-04-01T17:45:49.613Z",
-      "updated_at": "2026-04-01T17:56:31.972Z"
+      "updated_at": "2026-04-01T17:56:31.972Z",
+      "payload_id": "payload-1775065918598"
     },
     {
       "execution_id": "exec-1775066846831-1",
@@ -150,7 +156,8 @@
       ],
       "operator_notes": "Approved third validator exit-code update.",
       "created_at": "2026-04-01T18:07:26.831Z",
-      "updated_at": "2026-04-01T18:10:14.371Z"
+      "updated_at": "2026-04-01T18:10:14.371Z",
+      "payload_id": "payload-1775066925977"
     }
   ]
 }
