@@ -254,6 +254,16 @@ function runStage(stageName) {
         detail: null
       };
     }
+    const handoffExistenceResult = runScript('validate-eligible-candidate-handoff-existence-v1');
+    if (handoffExistenceResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-handoff-existence-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-handoff-existence-v1',
+        detail: null
+      };
+    }
     const previewResult = runScript('validate-eligible-candidate-handoff-preview-v1');
     if (previewResult.status !== 0) {
       logStageFailure(stageName, 'validate-eligible-candidate-handoff-preview-v1');
