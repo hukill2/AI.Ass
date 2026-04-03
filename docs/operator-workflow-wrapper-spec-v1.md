@@ -51,6 +51,7 @@ Each stage stops if its scripts flag errors.
 - When the requested stages finish, the wrapper prints `Summary: stages completed - "stage1", "stage2", ... .` followed by `Operator workflow wrapper completed successfully.` on success.
 - On failure from an invalid stage name it prints `Summary: <reason>` plus `Operator workflow wrapper failed.`.
 - On failure from a stage script it prints `Summary: stage "<stage>" failed while running "<script>".` plus `Operator workflow wrapper failed.`.
+- When `scripts/check-prompt-template-mirror-v1.js` runs, it still prints the friendly metadata/failure line, but it now also emits a JSON payload (`{"guard":"check-prompt-template-mirror-v1",...}`) with `status`, timestamp, or failing template info. Operators and tooling can parse that structured line immediately after the human message to capture the guard detail (e.g., `reason`, `template`, `lastRefreshed`) for reporting or alerting alongside the standard summary.
 
 ## Out-of-scope
 - No new modeling or execution logic: the wrapper runs existing scripts only.
