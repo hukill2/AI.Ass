@@ -12,6 +12,7 @@ This page is the single entry point for the prompt-template lane. Use it to see 
 ## Source & mirror
 - `C:\AI.Ass\AI Prompt Templates.docx`: human staging/reference source; update it whenever template text changes.
 - `docs/prompt-templates.md`: markdown mirror consumed by prompt scripts; `scripts/sync-prompt-templates-v1.js` regenerates it from the `.docx` source with the canonical heading/code block schema and `> **Last refreshed:** YYYY-MM-DD` metadata.
+- **Reminder:** edit the `.docx` file as the single human source and rerun the sync script so the markdown mirror stays current for automation.
 
 ## Guard & automation
 - `scripts/check-prompt-template-mirror-v1.js`: guard that checks templates for placeholder drift and schema issues and now runs first inside `scripts/operator-workflow-wrapper-v1.js --stage=preflight`.
