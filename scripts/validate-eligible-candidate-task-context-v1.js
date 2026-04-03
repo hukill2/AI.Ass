@@ -55,12 +55,23 @@ if (!taskId || typeof taskId !== 'string' || !taskId.trim()) {
 }
 
 const taskDoc = loadJson(TASK_CONTEXT_PATH);
-let taskEntries = [];
-if (Array.isArray(taskDoc.task_context)) {
-  taskEntries = taskDoc.task_context;
-} else if (taskDoc.task_id) {
-  taskEntries = [taskDoc];
-} else {
+
+function collectTaskEntries(doc) {
+  if (!doc || typeof doc !== 'object') return [];
+  if (Array.isArray(doc.task_context) && doc.task_context.length > 0) {
+    return doc.task_context;
+  }
+  if (Array.isArray(doc.tasks) && doc.tasks.length > 0) {
+    return doc.tasks;
+  }
+  if (typeof doc.task_id === 'string') {
+    return [doc];
+  }
+  return [];
+}
+
+const taskEntries = collectTaskEntries(taskDoc);
+if (taskEntries.length === 0) {
   fail('task-context data lacks task entries');
 }
 
