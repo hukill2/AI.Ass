@@ -884,8 +884,9 @@ untime/decision-reviews.v1.json.\n\n## Allowed Statuses\n- pending\n- reviewed\n
 
 # Execution Gate Contract v1
 
-## Status note
+  ## Status note
 This document is now historical for the promotion gate only. The repo has since added readonly and write executor layers; use `docs/local-readonly-executor-status-v1.md`, `docs/local-write-executor-contract-v1.md`, and `docs/codex-execution-contract-v1.md` for the current execution reality.
+**Tooling note:** we still need to plumb in OLLama APIs so the executor docs and their supporting scripts can choose/report the live inference model dynamically rather than hard-coding the current qwen variant.
 
 ## Purpose
 Defines how approved decision reviews are elevated to execution candidates within the local workflow.
