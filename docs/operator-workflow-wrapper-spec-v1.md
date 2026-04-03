@@ -56,6 +56,7 @@ Each stage stops if its scripts flag errors.
 - Run `node scripts/report-prompt-template-guard-v1.js` to read that persisted guard artifact anytime; it prints `Stored guard detail: …` summarizing status/reason/template/timestamp so you can document or alert on the failure without opening the raw wrapper logs.
 - Each failure now also appends the guard JSON to `logs/prompt-template-guard-history.jsonl` with an ISO timestamp (`recordedAt`). Tail this history file or load it in automation to review recent guard failures without rerunning the wrapper.
 - Summarize that history quickly with `node scripts/summarize-prompt-template-guard-history-v1.js`; it reports total entries, counts by status and reason, optional template counts, and the latest recorded timestamp so you can spot recurring guard issues at a glance.
+- Export the same history to CSV via `node scripts/export-prompt-template-guard-history-v1.js`; it writes `logs/prompt-template-guard-history.csv` with columns `recordedAt,status,reason,template,guard` for downstream spreadsheet or analytics ingestion.
 - When `scripts/check-prompt-template-mirror-v1.js` runs, it still prints the friendly metadata/failure line, but it now also emits a JSON payload (`{"guard":"check-prompt-template-mirror-v1",...}`) with `status`, timestamp, or failing template info. Operators and tooling can parse that structured line immediately after the human message to capture the guard detail (e.g., `reason`, `template`, `lastRefreshed`) for reporting or alerting alongside the standard summary.
 
 ## Out-of-scope
