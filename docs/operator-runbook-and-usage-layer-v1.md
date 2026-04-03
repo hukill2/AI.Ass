@@ -21,7 +21,7 @@ node scripts/operator-workflow-wrapper-v1.js [--stage=<preflight|readiness|prep|
 - `--help` and `-h` print the built-in usage line, supported stages, example command, and the reminder that omitting `--stage` runs all stages in order.
 
 ## Supported stages
-1. **Preflight** runs the foundational validators to ensure each candidate and review is well-formed. Next action on failure: fix the reported data before restarting.
+1. **Preflight** now starts with `check-prompt-template-mirror-v1.js` to guard the prompt-template mirror before running the existing foundational validators that ensure each candidate and review is well-formed. Next action on failure: refresh the mirror per the guard instructions below or fix the reported data before restarting.
 2. **Readiness** runs tooling manifest/inventory/catalog scripts plus health summaries and their validators. Next action on failure: restore missing tooling or regenerate consistent health artifacts.
 3. **Prep** runs ops/status summaries and the validator suite because preparation must succeed before execution. Next action on failure: inspect the failing validator output and resolve data or suite inconsistencies.
 4. **Post** reruns health/meta reports plus alignment validators after an execution. Next action on failure: update or rerun the health reports until the wrapper finishes cleanly.
@@ -73,7 +73,7 @@ Operators should treat this runbook as the primary reference for using the wrapp
   Revisit read/write/Codex executor docs whenever executor script names change, required inputs/payloads/handoffs are modified, new statuses or results are introduced, or the operator flow between readonly, write, and Codex shifts. These canonical documents should stay in sync with the actual script surfaces and runtime assumptions.
 
 ## Prompt-template guard remediation
-- Run `node scripts/check-prompt-template-mirror-v1.js` whenever you refresh the prompt mirror or before relying on the guard-protected templates.
+- `check-prompt-template-mirror-v1.js` now runs automatically at the start of the preflight stage; rerun the script manually whenever you refresh the prompt mirror or whenever the wrapper reports a guard failure so the mirror metadata and placeholder schema resolve before retrying.
 - If the guard reports `Template "<name>" contains only placeholder text…`, open `docs/prompt-templates.md`, replace that section with the real template content, or remove the template until real content exists, then rerun the guard.
 - Once the guard succeeds, proceed with the wrapper run or prompt-template automation that depends on the mirror.
 

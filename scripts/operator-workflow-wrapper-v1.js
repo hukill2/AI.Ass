@@ -4,6 +4,7 @@ const path = require('path');
 
 const stageScripts = {
   preflight: [
+    'check-prompt-template-mirror-v1',
     'validate-execution-candidate-anomalies-v1',
     'validate-all-review-lanes-state-v1',
     'validate-execution-candidate-coverage-buckets-v1',
