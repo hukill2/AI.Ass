@@ -35,6 +35,7 @@ node scripts/operator-workflow-wrapper-v1.js [--stage=<preflight|readiness|prep|
 ## Handling failures
 - If a stage script fails, the wrapper logs `Stage "<name>" stopped at "<script>".`, then prints `Summary: stage "<stage>" failed while running "<script>".` and exits `1`.
 - When you see `Stage "preflight" stopped at "scripts/check-prompt-template-mirror-v1.js".`, treat it as a prompt-template mirror guard failure, consult `docs/prompt-template-guard-troubleshooting-v1.md`, refresh `AI Prompt Templates.docx`, rerun `node scripts/sync-prompt-templates-v1.js` and `node scripts/check-prompt-template-mirror-v1.js`, then rerun `node scripts/operator-workflow-wrapper-v1.js --stage=preflight` once the guard passes.
+- **FAQ:** Preflight still stops at the guard even after retrying? The prompt-template lane index (`docs/prompt-template-lane-index-v1.md`) lists every related artifact, and the quick-reference card (`docs/prompt-template-guard-quick-reference-v1.md`) surfaces the failure line plus the three recovery commands so you can rerun the guard with minimum navigation. Follow that path before rerunning the wrapper.
 - If an invalid stage name is supplied, the wrapper prints `Summary: Unknown stage '<name>'. Valid stages: preflight, readiness, prep, post, all.` followed by `Operator workflow wrapper failed.` and exits `1`.
 - Example failures:
   * `validate-execution-candidate-coverage-buckets-v1.js` fails -> coverage mismatch; fix input data.
