@@ -44,6 +44,7 @@ Each stage stops if its scripts flag errors.
 - `1`: a stage aborted because one of its scripts failed or an invalid `--stage` was provided; the wrapper logs the failing script and stage so operators can fix the blocker before rerunning.
 - Operators rely on these exit codes to determine whether to move ahead, rerun a stage, or stop for troubleshooting without needing additional wrappers.
 - After a successful readonly/preflight run (`execution_result=success`), treat `docs/local-readonly-executor-status-v1.md` as the canonical snapshot of that executor’s readiness state; once write-mode execution is enabled, the analogous `docs/local-write-executor-contract-v1.md` provides the required inputs/results/guardrails before the wrapper resumes higher stages.
+- That readonly success snapshot does not authorize write execution on its own; always consult `docs/local-write-executor-contract-v1.md` to validate the write-mode preconditions, inputs, and guardrails before attempting the next stage that touches the repo.
 
 ## Stage summary & final status wording
 - Each stage now logs `Stage "<name>" starting...` at the beginning and either `Stage "<name>" completed successfully.` when all scripts pass or `Stage "<name>" stopped at "<script>".` when a script fails.
