@@ -75,6 +75,7 @@ Operators should treat this runbook as the primary reference for using the wrapp
 ## Prompt-template guard remediation
 - `check-prompt-template-mirror-v1.js` now runs automatically at the start of the preflight stage; rerun the script manually whenever you refresh the prompt mirror or whenever the wrapper reports a guard failure so the mirror metadata and placeholder schema resolve before retrying.
 - If the guard reports `Template "<name>" contains only placeholder text…`, open `docs/prompt-templates.md`, replace that section with the real template content, or remove the template until real content exists, then rerun the guard.
+- A quick troubleshooting checklist lives in `docs/prompt-template-guard-troubleshooting-v1.md` when the guard keeps failing even after regenerating the mirror.
 - When the guard fails inside the wrapper, the console prints:
   ```
   Prompt-template mirror guard failed. Refresh `AI Prompt Templates.docx`, rerun `node scripts/sync-prompt-templates-v1.js`, then rerun this wrapper stage.
