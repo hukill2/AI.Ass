@@ -194,6 +194,16 @@ function runStage(stageName) {
       logStageFailure(stageName, 'validate-eligible-candidate-review-v1');
       return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-review-v1', detail: null };
     }
+    const reviewLinkResult = runScript('validate-eligible-candidate-review-link-v1');
+    if (reviewLinkResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-review-link-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-review-link-v1',
+        detail: null
+      };
+    }
     const reviewStatusResult = runScript('validate-eligible-candidate-review-status-v1');
     if (reviewStatusResult.status !== 0) {
       logStageFailure(stageName, 'validate-eligible-candidate-review-status-v1');
@@ -241,6 +251,16 @@ function runStage(stageName) {
         stage: stageName,
         status: 'failed',
         script: 'validate-eligible-candidate-decision-exists-v1',
+        detail: null
+      };
+    }
+    const decisionFilesResult = runScript('validate-eligible-candidate-decision-files-v1');
+    if (decisionFilesResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-decision-files-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-decision-files-v1',
         detail: null
       };
     }
