@@ -204,6 +204,16 @@ function runStage(stageName) {
         detail: null
       };
     }
+    const readonlyExecutionResult = runScript('validate-eligible-candidate-readonly-log-execution-id-match-v1');
+    if (readonlyExecutionResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-readonly-log-execution-id-match-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-readonly-log-execution-id-match-v1',
+        detail: null
+      };
+    }
     const readonlyHandoffResult = runScript('validate-eligible-candidate-readonly-log-handoff-preview-match-v1');
     if (readonlyHandoffResult.status !== 0) {
       logStageFailure(stageName, 'validate-eligible-candidate-readonly-log-handoff-preview-match-v1');
