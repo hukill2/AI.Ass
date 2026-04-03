@@ -214,6 +214,16 @@ function runStage(stageName) {
         detail: null
       };
     }
+    const nonPendingResult = runScript('validate-eligible-candidate-review-status-non-pending-v1');
+    if (nonPendingResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-review-status-non-pending-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-review-status-non-pending-v1',
+        detail: null
+      };
+    }
     const taskResult = runScript('validate-eligible-candidate-task-context-v1');
     if (taskResult.status !== 0) {
       logStageFailure(stageName, 'validate-eligible-candidate-task-context-v1');
