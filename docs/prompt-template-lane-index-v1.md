@@ -18,6 +18,7 @@ This page is the single entry point for the prompt-template lane. Use it to see 
 - `scripts/check-prompt-template-mirror-v1.js`: guard that checks templates for placeholder drift and schema issues and now runs first inside `scripts/operator-workflow-wrapper-v1.js --stage=preflight`.
 - `docs/prompt-template-guard-troubleshooting-v1.md`: full checklist for refreshing the mirror, rerunning the guard, and retrying wrapper preflight when the guard fails.
 - `docs/prompt-template-guard-quick-reference-v1.md`: compact card summarizing the guard failure line, key commands, staging source reminder, and link to the checklist.
+- **Interpretation note:** A guard stop usually means the mirror metadata or templates contain placeholders only or outdated timestamps; start with the quick-reference card to rerun `sync`/`check`, then move into the troubleshooting checklist if the same template keeps failing.
 
 ## Operator guidance
 - `docs/operator-runbook-and-usage-layer-v1.md`: runbook section now links to both the guard troubleshooting doc and the quick reference, plus interprets the guard-specific wrapper summary line.
