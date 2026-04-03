@@ -73,10 +73,14 @@ if (args.includes('--help') || args.includes('-h')) {
 
 function runScript(name) {
   const scriptPath = path.resolve(__dirname, `${name}.js`);
-  const result = spawnSync(process.execPath, [scriptPath], { stdio: 'inherit' });
-  if (result.status !== 0) {
-    throw new Error(name);
+  const result = spawnSync(process.execPath, [scriptPath], { encoding: 'utf8' });
+  if (result.stdout) {
+    process.stdout.write(result.stdout);
   }
+  if (result.stderr) {
+    process.stderr.write(result.stderr);
+  }
+  return { name, status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
 }
 
 function logStageStart(stageName) {
@@ -91,19 +95,34 @@ function logStageFailure(stageName, scriptName) {
   console.error(`Stage "${stageName}" stopped at "${scriptName}".`);
 }
 
+function parseGuardDetail(output) {
+  const lines = output.trim().split(/\r?\n/);
+  const jsonLine = lines.reverse().find((line) => {
+    const trimmed = line.trim();
+    return trimmed.startsWith('{') && trimmed.endsWith('}');
+  });
+  if (!jsonLine) return null;
+  try {
+    return JSON.parse(jsonLine);
+  } catch {
+    return null;
+  }
+}
+
 function runStage(stageName) {
   logStageStart(stageName);
   for (const script of stageScripts[stageName]) {
-    try {
-      runScript(script);
-    } catch (err) {
-      if (err.message === 'check-prompt-template-mirror-v1') {
+    const result = runScript(script);
+    if (result.status !== 0) {
+      let detail = null;
+      if (script === 'check-prompt-template-mirror-v1') {
+        detail = parseGuardDetail(result.stdout + result.stderr);
         console.error(
           'Prompt-template mirror guard failed. Refresh `AI Prompt Templates.docx`, rerun `node scripts/sync-prompt-templates-v1.js`, then rerun this wrapper stage.'
         );
       }
-      logStageFailure(stageName, err.message);
-      return { stage: stageName, status: 'failed', script: err.message };
+      logStageFailure(stageName, script);
+      return { stage: stageName, status: 'failed', script, detail };
     }
   }
   logStageComplete(stageName);
@@ -117,11 +136,25 @@ function logFinalSuccess(results) {
 }
 
 function logFinalFailure(failure) {
-  if (failure.reason) {
-    console.error(`Summary: ${failure.reason}`);
-  } else {
-    console.error(`Summary: stage "${failure.stage}" failed while running "${failure.script}".`);
+  let summary = failure.reason
+    ? `Summary: ${failure.reason}`
+    : `Summary: stage "${failure.stage}" failed while running "${failure.script}"`;
+  if (failure.detail) {
+    const details = [];
+    if (failure.detail.reason) {
+      details.push(`reason=${failure.detail.reason}`);
+    }
+    if (failure.detail.template) {
+      details.push(`template=${failure.detail.template}`);
+    }
+    if (failure.detail.status) {
+      details.push(`guard_status=${failure.detail.status}`);
+    }
+    if (details.length > 0) {
+      summary += ` (${details.join(', ')})`;
+    }
   }
+  console.error(summary + '.');
   console.error('Operator workflow wrapper failed.');
 }
 
