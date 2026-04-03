@@ -58,6 +58,10 @@ Real write-enabled execution must produce:
 - Execution success is separate from approval.
 - Failed execution must still be logged.
 
+## Quality & fidelity expectations
+- The write executor enforces a lightweight check before any file mutation: the AI-generated output must mention the target file name and include file-specific keywords (e.g., `handoff`, `payload_id`, etc.) before writing. Failures are recorded as `execution_result: failed` with notes explaining what triggered the check (e.g., “target name not mentioned”), making the blocker obvious.
+- When the target file already exists, the same check runs before overwriting so the new text explicitly matches what was requested even if the file previously came from the assistant.
+
 ## Readiness helper
 - Run `node scripts/validate-local-write-readiness-v1.js --execution-id=<id>` before attempting a write dry run or real write. It confirms:
   * the execution candidate exists and remains `execution_prepared` or `awaiting_execution`
