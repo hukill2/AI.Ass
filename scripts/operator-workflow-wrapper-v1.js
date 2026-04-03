@@ -192,6 +192,16 @@ function runStage(stageName) {
         status: 'failed',
         script: 'validate-eligible-candidate-payload-existence-v1',
         detail: null
+        };
+    }
+    const payloadSchemaResult = runScript('validate-eligible-candidate-payload-schema-v1');
+    if (payloadSchemaResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-payload-schema-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-payload-schema-v1',
+        detail: null
       };
     }
     const readonlyMatchResult = runScript('validate-eligible-candidate-readonly-log-payload-match-v1');

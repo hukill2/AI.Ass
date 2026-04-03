@@ -1242,6 +1242,7 @@ This spec defines a minimal “operator workflow wrapper” that coordinates the
 
 The preflight checklist now includes the newly added `validate-eligible-candidate-readonly-log-execution-id-match-v1.js` guard, so the wrapper explicitly confirms a successful `qwen-readonly` log shares the same execution identity as the chosen candidate before continuing through the handoff/review validation chain.
 The preceding `validate-eligible-candidate-payload-existence-v1.js` guard makes that chain more deterministic by ensuring the eligible candidate’s `payload_id` actually resolves to one of the executor payload records before the readonly log matching runs.
+The newest `validate-eligible-candidate-payload-schema-v1.js` guard now enforces the minimum executor payload metadata (review_id, decision_id, task_id, prepared_at, and files_to_create_or_update) before the remaining readonly and handoff validators rely on that record.
 The subsequent `validate-eligible-candidate-readonly-log-timestamp-guard-v1.js` now insists the eligible candidate exposes a valid `updated_at` timestamp before comparing freshness, so missing or invalid timestamps stop preflight rather than producing an ambiguous comparison.
 
 ## Purpose
