@@ -1244,6 +1244,7 @@ The preflight checklist now includes the newly added `validate-eligible-candidat
 The preceding `validate-eligible-candidate-payload-existence-v1.js` guard makes that chain more deterministic by ensuring the eligible candidate’s `payload_id` actually resolves to one of the executor payload records before the readonly log matching runs.
 The newest `validate-eligible-candidate-payload-schema-v1.js` guard now enforces the minimum executor payload metadata (review_id, decision_id, task_id, prepared_at, and files_to_create_or_update) before the remaining readonly and handoff validators rely on that record.
 The `validate-eligible-candidate-handoff-existence-v1.js` guard now ensures the handoff packet referenced by that readonly log exists and carries the expected metadata before the preview/preview matching scripts proceed.
+The new `validate-eligible-candidate-preview-existence-v1.js` guard then verifies the linked invocation preview artifact is present and matches that same handoff chain before the rest of the preview validation can continue.
 The subsequent `validate-eligible-candidate-readonly-log-timestamp-guard-v1.js` now insists the eligible candidate exposes a valid `updated_at` timestamp before comparing freshness, so missing or invalid timestamps stop preflight rather than producing an ambiguous comparison.
 
 ## Purpose

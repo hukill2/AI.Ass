@@ -264,6 +264,16 @@ function runStage(stageName) {
         detail: null
       };
     }
+    const previewExistenceResult = runScript('validate-eligible-candidate-preview-existence-v1');
+    if (previewExistenceResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-preview-existence-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-preview-existence-v1',
+        detail: null
+      };
+    }
     const previewResult = runScript('validate-eligible-candidate-handoff-preview-v1');
     if (previewResult.status !== 0) {
       logStageFailure(stageName, 'validate-eligible-candidate-handoff-preview-v1');
