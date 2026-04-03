@@ -184,6 +184,16 @@ function runStage(stageName) {
       logStageFailure(stageName, 'validate-eligible-candidate-payloads-v1');
       return { stage: stageName, status: 'failed', script: 'validate-eligible-candidate-payloads-v1', detail: null };
     }
+    const readonlyMatchResult = runScript('validate-eligible-candidate-readonly-log-payload-match-v1');
+    if (readonlyMatchResult.status !== 0) {
+      logStageFailure(stageName, 'validate-eligible-candidate-readonly-log-payload-match-v1');
+      return {
+        stage: stageName,
+        status: 'failed',
+        script: 'validate-eligible-candidate-readonly-log-payload-match-v1',
+        detail: null
+      };
+    }
     const previewResult = runScript('validate-eligible-candidate-handoff-preview-v1');
     if (previewResult.status !== 0) {
       logStageFailure(stageName, 'validate-eligible-candidate-handoff-preview-v1');
