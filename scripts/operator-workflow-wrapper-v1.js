@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const { spawnSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const stageScripts = {
@@ -95,6 +96,21 @@ function logStageFailure(stageName, scriptName) {
   console.error(`Stage "${stageName}" stopped at "${scriptName}".`);
 }
 
+const guardTelemetryPath = path.resolve(__dirname, '../logs/prompt-template-guard.json');
+
+function ensureTelemetryDir() {
+  const dir = path.dirname(guardTelemetryPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function writeGuardTelemetry(detail) {
+  if (!detail) return;
+  ensureTelemetryDir();
+  fs.writeFileSync(guardTelemetryPath, JSON.stringify(detail));
+}
+
 function parseGuardDetail(output) {
   const lines = output.trim().split(/\r?\n/);
   const jsonLine = lines.reverse().find((line) => {
@@ -120,6 +136,7 @@ function runStage(stageName) {
         console.error(
           'Prompt-template mirror guard failed. Refresh `AI Prompt Templates.docx`, rerun `node scripts/sync-prompt-templates-v1.js`, then rerun this wrapper stage.'
         );
+        writeGuardTelemetry(detail);
       }
       logStageFailure(stageName, script);
       return { stage: stageName, status: 'failed', script, detail };
