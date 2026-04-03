@@ -3,6 +3,7 @@
 > **Last refreshed:** 2026-04-03
 
 This file mirrors the prompt templates stored in Notion (and currently staged in C:/AI.Ass/AI Prompt Templates.docx for human reference). Run `node scripts/sync-prompt-templates-v1.js` whenever the staged document changes; the script converts that source into the exact `### <name>` / code-block schema the guard and retrieval helpers expect, then prints the full UTC timestamp it recorded. Until synchronization completes, treat the .docx file as the staging area and point readers/scripts at this markdown mirror only after it is refreshed.
+See `docs/prompt-template-lane-index-v1.md` for a quick map that links this mirror to the guard, troubleshooting, quick-reference, runbook, wrapper spec, and aggregate context notes so you can reach any prompt-template artifact from one place.
 
 ## Templates
 
@@ -475,4 +476,3 @@ Report back with:
 \- whether closed
 \- suggested next narrow subsystem
 ```
-
