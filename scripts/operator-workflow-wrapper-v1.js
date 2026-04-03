@@ -97,6 +97,7 @@ function logStageFailure(stageName, scriptName) {
 }
 
 const guardTelemetryPath = path.resolve(__dirname, '../logs/prompt-template-guard.json');
+const guardHistoryPath = path.resolve(__dirname, '../logs/prompt-template-guard-history.jsonl');
 
 function ensureTelemetryDir() {
   const dir = path.dirname(guardTelemetryPath);
@@ -109,6 +110,12 @@ function writeGuardTelemetry(detail) {
   if (!detail) return;
   ensureTelemetryDir();
   fs.writeFileSync(guardTelemetryPath, JSON.stringify(detail));
+
+  const record = {
+    ...detail,
+    recordedAt: new Date().toISOString()
+  };
+  fs.appendFileSync(guardHistoryPath, JSON.stringify(record) + '\n');
 }
 
 function parseGuardDetail(output) {
