@@ -71,6 +71,49 @@ const SECTION_MAP = {
   finaloutcome: 'final_outcome',
 };
 const BODY_FIELDS = Object.values(SECTION_MAP);
+const REQUIRED_PROPERTY_KEYS = [
+  'Task ID',
+  'Title',
+  'Status',
+  'Decision',
+  'Risk',
+  'Route Target',
+  'Needs Approval',
+  'Execution Allowed',
+  'Trigger Reason',
+  'Operator Notes',
+  'Revised Instructions',
+  'Sync Status',
+];
+
+function findMissingProperties(properties = {}) {
+  return REQUIRED_PROPERTY_KEYS.filter((key) => {
+    if (key === 'Title') {
+      return (
+        !Object.prototype.hasOwnProperty.call(properties, 'Title') &&
+        !Object.prototype.hasOwnProperty.call(properties, 'Name')
+      );
+    }
+    return !Object.prototype.hasOwnProperty.call(properties, key);
+  });
+}
+
+function findMissingPageMeta(page = {}) {
+  const missing = [];
+  if (!page.id) {
+    missing.push('Page ID');
+  }
+  if (!page.url) {
+    missing.push('Page URL');
+  }
+  if (!page.created_time) {
+    missing.push('Created At');
+  }
+  if (!page.last_edited_time) {
+    missing.push('Updated At');
+  }
+  return missing;
+}
 
 function joinRichText(richTextArray = []) {
   return richTextArray.map((block) => block.plain_text).join('');
@@ -210,7 +253,8 @@ async function run() {
   const pages = await queryDatabase();
   const emptySections = new Map();
   const items = [];
-  let skippedTemplates = 0;
+  let skippedIgnored = 0;
+  let skippedIncomplete = 0;
   for (const page of pages) {
     const properties = page.properties || {};
     const blocks = await fetchBlocks(page.id);
@@ -232,19 +276,30 @@ async function run() {
         appendToBody(body, currentSection, text);
       }
     }
+    const syncStatus = selectFromProperty(properties['Sync Status']);
+    if (syncStatus === 'Ignore') {
+      skippedIgnored++;
+      continue;
+    }
+    const missingProperties = findMissingProperties(properties);
+    const missingPageMeta = findMissingPageMeta(page);
+    if (missingProperties.length || missingPageMeta.length) {
+      const reasons = [...missingProperties, ...missingPageMeta];
+      const reference = page.id || page.url || 'unknown page';
+      console.warn(
+        `Skipping Reviews / Approvals page ${reference} because it's missing required data: ${reasons.join(', ')}`,
+      );
+      skippedIncomplete++;
+      continue;
+    }
     BODY_FIELDS.forEach((field) => {
       if (!body[field].trim()) {
         emptySections.set(field, (emptySections.get(field) || 0) + 1);
       }
     });
-    const syncStatus = selectFromProperty(properties['Sync Status']);
-    if (syncStatus === 'Ignore') {
-      skippedTemplates++;
-      continue;
-    }
     const item = {
       task_id: textFromProperty(properties['Task ID']),
-      title: textFromProperty(properties.Title) || '',
+      title: textFromProperty(properties.Title || properties.Name) || '',
       status: selectFromProperty(properties.Status),
       decision: selectFromProperty(properties.Decision),
       risk: selectFromProperty(properties.Risk),
@@ -267,8 +322,11 @@ async function run() {
   const payload = { version: 'v1', items };
   fs.writeFileSync(MIRROR_PATH, JSON.stringify(payload, null, 2) + '\n');
   console.log(`Wrote ${items.length} review item(s) to ${MIRROR_PATH}`);
-  if (skippedTemplates) {
-    console.log(`Skipped ${skippedTemplates} review item(s) marked with Sync Status "Ignore".`);
+  if (skippedIgnored) {
+    console.log(`Skipped ${skippedIgnored} review item(s) marked with Sync Status "Ignore".`);
+  }
+  if (skippedIncomplete) {
+    console.log(`Skipped ${skippedIncomplete} review item(s) due to missing required data.`);
   }
   if (emptySections.size) {
     console.log('Sections without content (body fields defaulted empty):');
