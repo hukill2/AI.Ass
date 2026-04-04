@@ -1,0 +1,36 @@
+{
+  "task_id": "template-001",
+  "title": "OS-V1 Core Architecture Verification",
+  "status": "Completed",
+  "route_target": "OS-V1-Core",
+  "decision": "Reframed and authorized for diagnostic-only execution. Proceed to perform read-only OS-V1 core architecture verification and generate the report; no system modifications permitted.",
+  "risk": "Low",
+  "needs_approval": true,
+  "execution_allowed": false,
+  "trigger_reason": "Template placeholder",
+  "operator_notes": "Term 'Codex' is deprecated and has been reinterpreted per OS-V1 directives. Apprentice must operate in read-only mode; only authorized write is the generation of a diagnostic report file. Escalate to Architect for any required changes or refactors.",
+  "revised_instructions": "Execute a read-only architectural verification of OS-V1 core per Librarian directive. Do not modify any code, configs, or system state. Generate a single markdown report at C:\\ai.ass\\verification-logs\\os-v1-arch-verify-report-template-001.md documenting findings and recommendations for Architect review.",
+  "priority": "",
+  "metadata": {
+    "page_id": "3340f028-0c2b-8192-9390-f0137c61f1b1",
+    "project": "OS-V1",
+    "owner": ""
+  },
+  "body": {
+    "summary": "Reinterpret deprecated 'Codex' task to OS-V1 Core Architecture Verification. Perform a comprehensive read-only scan of C:\\ai.ass\\OS-V1\\, verify naming policy compliance (executor- prefix), detect deprecated 'Codex' references, identify modules and interdependencies, find orphans/inconsistencies, and output a structured markdown report. No system modifications allowed; report generation only.",
+    "full_context": "Handoff context: 1) 'Codex' is deprecated; refactor references conceptually to OS-V1 Core. 2) execution_allowed=false: Apprentice (Qwen-7B) must operate read-only; no system state/config changes. 3) Naming policy: active scripts must use 'executor-' prefix. 4) Mirror System: C:\\ai.ass\\mirror\\tasks.json is the local proxy for task/state. 5) Write mode: Cloud models are read-only; Apprentice may only write via executor- scripts when authorized. For this task, writing the verification report is authorized as diagnostic output.",
+    "proposed_action": "Run a diagnostic-only workflow: 1) Confirm environment and constraints. 2) Recursively list C:\\ai.ass\\OS-V1\\; read C:\\ai.ass\\mirror\\tasks.json; identify executor- scripts and relevant configs; read their contents. 3) Analyze for deprecated 'Codex' references; verify naming policy; identify modules, interdependencies, orphans, and inconsistencies. 4) Generate markdown report at C:\\ai.ass\\verification-logs\\os-v1-arch-verify-report-template-001.md with structured sections (findings, deprecated refs, naming compliance, modules/interdeps, observations, recommendations). 5) Prepare learning loop record for apprentice journal (read-only planning; logging to be performed only when explicitly authorized).",
+    "why_this_was_triggered": "The task is a template placeholder using deprecated 'Codex' terminology. It requires reinterpretation under OS-V1 policies and a read-only verification to map the current core architecture and detect legacy artifacts.",
+    "risk_assessment": "Low. All actions are read-only except for creating a single diagnostic report file. No code/config/system state changes. Primary risks are incomplete coverage or false positives; mitigated by explicit documentation in the report.",
+    "suggested_route": "OS-V1-Core",
+    "affected_components": "- Directory: C:\\ai.ass\\OS-V1\\ (all subfolders/files)\n- Mirror: C:\\ai.ass\\mirror\\tasks.json (read-only)\n- Output: C:\\ai.ass\\verification-logs\\os-v1-arch-verify-report-template-001.md (report file)",
+    "operator_notes": "Before proceeding, confirm: working directory is C:\\ai.ass; project is OS-V1; task is diagnostic-only. Do not rename, move, or edit any files. If any operation would change system state, stop and request Architect approval.",
+    "revised_instructions": "Phase 1: Environment & Task Confirmation\n1) Confirm working directory: C:\\ai.ass\n2) Acknowledge project_id: OS-V1\n3) Confirm execution_allowed=false implies no system modifications\n4) Confirm 'Codex' deprecated; reinterpret to OS-V1 Core\n\nPhase 2: Information Retrieval (READ-ONLY)\n1) Recursively list C:\\ai.ass\\OS-V1\\\n2) Read C:\\ai.ass\\mirror\\tasks.json\n3) Identify files with 'executor-' prefix in OS-V1\n4) Read contents of identified executor- scripts and relevant configs (.json/.yaml/.config, etc.)\n\nPhase 3: Architectural Analysis & Compliance Check\n1) Scan for 'Codex' references; record file path, line, context\n2) Verify naming policy: list compliant executor- scripts; list potential active scripts without prefix\n3) Identify OS-V1 modules/subsystems from content analysis\n4) Map interdependencies and data flow among modules and executor- scripts\n5) Detect orphaned components not referenced by executors or core configs\n6) Note structural inconsistencies, unclear responsibilities, or gaps\n\nPhase 4: Report Generation (AUTHORIZED WRITE)\nCreate C:\\ai.ass\\verification-logs\\os-v1-arch-verify-report-template-001.md including:\n- Header: Task ID (template-001), Effective Title (OS-V1 Core Architecture Verification), Project (OS-V1), Date\n- Summary of Findings\n- Deprecated 'Codex' References (path, line, snippet) + refactor recommendations\n- Naming Policy Compliance (executor-): compliant list; non-compliant candidates\n- Identified Modules & Interdependencies: description and data flow\n- Architectural Observations & Inconsistencies: issues and orphans\n- Recommendations: actions for Architect review (no changes to be performed by Apprentice)\n\nPhase 5: Learning Loop Record\nPrepare hypothesis, directive, and lesson delta for learning/apprentice-journal-v1.jsonl; only write when explicitly authorized.",
+    "final_outcome": "No outcome recorded."
+  },
+  "notion_page_id": "3340f028-0c2b-8192-9390-f0137c61f1b1",
+  "notion_url": "https://www.notion.so/Codex-Architecture-Verification-3340f0280c2b81929390f0137c61f1b1",
+  "created_at": "2026-03-31T15:46:00.000Z",
+  "updated_at": "2026-04-04T07:01:09.442Z",
+  "sync_status": "Synced"
+}

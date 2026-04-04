@@ -6,7 +6,7 @@ Documents how operator-reviewed decisions are elevated into execution candidates
 ## Scope
 - Covers the promotion logic implemented in `scripts/promote-approved-review-to-execution-candidate-v1.js`.
 - Depends on `runtime/decision-reviews.v1.json` (version `v1`), `runtime/assistant-decisions.v1.json` (version `v1`), and `runtime/execution-candidates.v1.json` (version `v1`).
-- Does not execute code, call Codex/Claude, send Telegram, or write to Notion; it only records the candidate data that later executor layers consume.
+- Does not execute code, call executor/Claude, send Telegram, or write to Notion; it only records the candidate data that later executor layers consume.
 
 ## Promotion heuristics
 1. Only reviews with `operator_status = approved` and a classification of either `approval-required` or `review-required` are considered.

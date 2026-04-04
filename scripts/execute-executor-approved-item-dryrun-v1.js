@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node scripts/execute-codex-approved-item-dryrun-v1.js --execution-id <id>
+// Usage: node scripts/execute-executor-approved-item-dryrun-v1.js --execution-id <id>
 
 const fs = require('fs');
 const path = require('path');
@@ -19,8 +19,8 @@ if (!executionId) {
 const reviews = load('runtime/decision-reviews.v1.json').reviews || [];
 const candidates = load('runtime/execution-candidates.v1.json').candidates || [];
 const payloads = load('runtime/executor-payloads.v1.json').payloads || [];
-const codexPackets = load('runtime/codex-handoff-packets.v1.json').packets || [];
-const previews = load('runtime/codex-invocation-previews.v1.json').previews || [];
+const executorPackets = load('runtime/executor-handoff-packets.v1.json').packets || [];
+const previews = load('runtime/executor-invocation-previews.v1.json').previews || [];
 const logsPath = path.resolve(__dirname, '..', 'runtime', 'execution-logs.v1.json');
 let logsDoc;
 try {
@@ -53,15 +53,15 @@ if (!payload) {
   process.exit(1);
 }
 
-const packet = codexPackets.find((p) => p.payload_id === payload.payload_id);
+const packet = executorPackets.find((p) => p.payload_id === payload.payload_id);
 if (!packet) {
-  console.error('Codex handoff packet missing.');
+  console.error('executor handoff packet missing.');
   process.exit(1);
 }
 
 const preview = previews.find((p) => p.handoff_id === packet.handoff_id);
 if (!preview) {
-  console.error('Codex invocation preview missing.');
+  console.error('executor invocation preview missing.');
   process.exit(1);
 }
 
@@ -80,10 +80,10 @@ const logEntry = {
   payload_id: payload.payload_id,
   handoff_id: packet.handoff_id,
   preview_id: preview.preview_id,
-  executor: 'codex-dryrun',
+  executor: 'executor-dryrun',
   execution_result: 'no_change',
   files_changed: [],
-  notes: 'Dry-run only; no Codex invocation performed.',
+  notes: 'Dry-run only; no executor invocation performed.',
   created_at: new Date().toISOString(),
 };
 

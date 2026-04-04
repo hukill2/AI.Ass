@@ -1,0 +1,36 @@
+{
+  "task_id": "test-002",
+  "title": "Test Modify Flow",
+  "status": "Completed",
+  "route_target": "Local",
+  "decision": "",
+  "risk": "Medium",
+  "needs_approval": true,
+  "execution_allowed": false,
+  "trigger_reason": "Validate modify workflow",
+  "operator_notes": "",
+  "revised_instructions": "Limit changes to routing docs only. Do not change approval rules.",
+  "priority": "",
+  "metadata": {
+    "page_id": "3340f028-0c2b-81b3-877b-f7c54bad081f",
+    "project": "OS-V1",
+    "owner": ""
+  },
+  "body": {
+    "summary": "",
+    "full_context": "",
+    "proposed_action": "",
+    "why_this_was_triggered": "",
+    "risk_assessment": "",
+    "suggested_route": "",
+    "affected_components": "",
+    "operator_notes": "",
+    "revised_instructions": "Limit changes to routing docs only. Do not change approval rules.",
+    "final_outcome": "Successfully verified OS automation loop and corrected naming convention from Codex to Local."
+  },
+  "notion_page_id": "3340f028-0c2b-81b3-877b-f7c54bad081f",
+  "notion_url": "https://www.notion.so/Test-Modify-Flow-3340f0280c2b81b3877bf7c54bad081f",
+  "created_at": "2026-03-31T15:56:00.000Z",
+  "updated_at": "2026-04-04T07:39:28.394Z",
+  "sync_status": "Synced"
+}

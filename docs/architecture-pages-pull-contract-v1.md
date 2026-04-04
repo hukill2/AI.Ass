@@ -53,7 +53,8 @@ Every pulled page record should include:
 - Operator entry: 
 ode scripts/pull-architecture-pages-v1.js
 - Requires NOTION_API_KEY and NOTION_AI_OS_PAGE_ID (loadable from .env).
-- Validates the configured root-page identifier and fetches that page from Notion, emitting a JSON payload with oot_page_id, 	itle, and url when successful.
+- Validates the configured root-page identifier and fetches that page from Notion, emitting a JSON payload with 
+oot_page_id, 	itle, and url when successful.
 - Missing configuration or fetch failures exit with code 1 so operators can fix the sync before progressing.
 
 ## Child metadata schema

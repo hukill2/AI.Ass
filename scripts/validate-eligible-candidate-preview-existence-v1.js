@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CANDIDATES_PATH = path.resolve(__dirname, '../runtime/execution-candidates.v1.json');
-const PREVIEW_PATH = path.resolve(__dirname, '../runtime/codex-invocation-previews.v1.json');
+const PREVIEW_PATH = path.resolve(__dirname, '../runtime/executor-invocation-previews.v1.json');
 
 function fail(message) {
   console.error(`Eligible candidate preview existence error: ${message}`);
@@ -52,7 +52,7 @@ if (!decisionId) {
 
 const previewDoc = loadJson(PREVIEW_PATH);
 if (!Array.isArray(previewDoc.previews)) {
-  fail('"previews" array missing in codex-invocation-previews.v1.json');
+  fail('"previews" array missing in executor-invocation-previews.v1.json');
 }
 
 const previewEntry = previewDoc.previews.find((entry) => entry && entry.decision_id === decisionId);

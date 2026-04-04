@@ -26,7 +26,7 @@ Avoid vague praise, invented success claims, hidden failures, bloated summaries,
 # Per-Route Notes
 - Local: note whether the assistant handled it correctly without escalation.  
 - Claude: note whether the reasoning or planning proved useful.  
-- Codex: note whether the implementation result was correct and usable.
+- executor: note whether the implementation result was correct and usable.
 
 # Output JSON Shape
 ```

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node scripts/prepare-codex-invocation-preview-v1.js --handoff-id <id>
+// Usage: node scripts/prepare-executor-invocation-preview-v1.js --handoff-id <id>
 
 const fs = require('fs');
 const path = require('path');
@@ -22,8 +22,8 @@ if (!handoffId) {
   process.exit(1);
 }
 
-const packetsDoc = loadJson('runtime/codex-handoff-packets.v1.json');
-const previewsPath = path.resolve(__dirname, '..', 'runtime', 'codex-invocation-previews.v1.json');
+const packetsDoc = loadJson('runtime/executor-handoff-packets.v1.json');
+const previewsPath = path.resolve(__dirname, '..', 'runtime', 'executor-invocation-previews.v1.json');
 let previewsDoc;
 try {
   previewsDoc = JSON.parse(fs.readFileSync(previewsPath, 'utf8'));
@@ -33,13 +33,13 @@ try {
 }
 
 if (!Array.isArray(packetsDoc.packets) || !Array.isArray(previewsDoc.previews)) {
-  console.error('Codex packet or preview store malformed.');
+  console.error('executor packet or preview store malformed.');
   process.exit(1);
 }
 
 const packet = packetsDoc.packets.find((p) => p.handoff_id === handoffId);
 if (!packet) {
-  console.error(`Codex handoff packet ${handoffId} not found.`);
+  console.error(`executor handoff packet ${handoffId} not found.`);
   process.exit(1);
 }
 
@@ -73,7 +73,7 @@ const preview = {
 previewsDoc.previews.push(preview);
 fs.writeFileSync(previewsPath, JSON.stringify(previewsDoc, null, 2) + '\n', 'utf8');
 
-console.log('Codex invocation preview prepared.');
+console.log('executor invocation preview prepared.');
 console.log(`handoff_id: ${preview.handoff_id}`);
 console.log(`execution_id: ${preview.execution_id}`);
 console.log(`decision_id: ${preview.decision_id}`);

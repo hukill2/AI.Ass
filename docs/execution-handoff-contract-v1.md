@@ -1,12 +1,12 @@
-﻿# Execution Handoff Contract v1
+# Execution Handoff Contract v1
 
 ## Purpose
-This contract captures what must be true before an execution candidate moves toward a future execution layer such as Codex. It keeps the handoff deterministic, reviewable, and free of automatic execution.
+This contract captures what must be true before an execution candidate moves toward a future execution layer such as executor. It keeps the handoff deterministic, reviewable, and free of automatic execution.
 
 ## Scope
 - Applies to records stored in `runtime/execution-candidates.v1.json`.
 - Does not execute anything yet.
-- Does not call Codex yet.
+- Does not call executor yet.
 - Does not call Claude.
 - Does not send Telegram.
 - Does not write back to Notion.

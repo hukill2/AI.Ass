@@ -2,7 +2,7 @@
 
 ## Purpose
 Defines the first real write-enabled executor mode after readonly success and write dry-run success have both been validated.
-See `docs/operator-runbook-and-usage-layer-v1.md` for the executor readiness overview that links readonly, write, and Codex expectations.
+See `docs/operator-runbook-and-usage-layer-v1.md` for the executor readiness overview that links readonly, write, and executor expectations.
 
 ## Preconditions
 Real write-enabled execution may only occur when:
@@ -68,7 +68,7 @@ Real write-enabled execution must produce:
   * the executor payload record exists and provides `payload_id` for traceability
   * a successful qwen-readonly log already exists for this execution
   * a successful qwen-write-dryrun log already exists for this execution
-  * the Codex handoff packet and invocation preview referenced in the latest successful qwen-readonly log are present so the write lane has the required payload data
+  * the executor handoff packet and invocation preview referenced in the latest successful qwen-readonly log are present so the write lane has the required payload data
 - On failure the script exits nonzero with a clear message (missing candidate, logs, or artifacts), so you can rebuild the missing pieces and rerun it until it passes.
 
 ## Live validation milestone

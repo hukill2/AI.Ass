@@ -1,0 +1,10 @@
+{
+  "ledger_hash": "5041cebd00958396e03bbf86d4d6934953318012",
+  "synced_at": "2026-04-04T07:39:32.118Z",
+  "total_cost": 0.1952,
+  "last_5hrs_cost": 0.1952,
+  "status": "HEALTHY",
+  "status_block_id": "3380f028-0c2b-81bd-bb11-febaa8de7ef7",
+  "cost_block_id": "3380f028-0c2b-8187-8efe-f2d839c79e30",
+  "divider_block_id": "3380f028-0c2b-812d-b53a-fbb81803b985"
+}

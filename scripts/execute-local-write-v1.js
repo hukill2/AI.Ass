@@ -23,8 +23,8 @@ const candidates = load('runtime/execution-candidates.v1.json').candidates || []
 const execLogs = load('runtime/execution-logs.v1.json').logs || [];
 const dryrunLogs = load('runtime/write-execution-dryrun-logs.v1.json').logs || [];
 const payloads = load('runtime/executor-payloads.v1.json').payloads || [];
-const handoffs = load('runtime/codex-handoff-packets.v1.json').packets || [];
-const previews = load('runtime/codex-invocation-previews.v1.json').previews || [];
+const handoffs = load('runtime/executor-handoff-packets.v1.json').packets || [];
+const previews = load('runtime/executor-invocation-previews.v1.json').previews || [];
 
 const candidate = candidates.find((c) => c.execution_id === executionId);
 if (!candidate) {
@@ -47,10 +47,10 @@ function isAllowed(file) {
 const CODE_INDICATORS = ['const', 'let', 'function', 'module.exports', 'json.parse', 'try {', 'require('];
 const HELP_PHRASES = ["i'd be happy to help", 'i need more information', 'please provide', 'please clarify', 'could you provide', 'let me know', 'do you have'];
 const FIDELITY_PROFILE_KEYWORDS = {
-  'scripts/validate-codex-handoff-packets-v1.js': ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'codex', 'validation', 'packet'],
+  'scripts/validate-executor-handoff-packets-v1.js': ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'executor', 'validation', 'packet'],
   'scripts/validate-json-lane.js': ['missing file', 'exit code 2', 'exit code 1', 'exist', 'missing', 'parse', 'json'],
 };
-const DEFAULT_FIDELITY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'codex', 'validation', 'packet'];
+const DEFAULT_FIDELITY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'executor', 'validation', 'packet'];
 const MANDATORY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id'];
 function evaluateQuality(text) {
   const lower = (text || '').toLowerCase();
@@ -86,7 +86,7 @@ function checkTaskFidelity(text, targetFile) {
   const keywords = getFidelityKeywords(targetFile);
   const hasDomain = keywords.some((kw) => lower.includes(kw));
   if (!containsTarget) {
-    if (path.basename(targetFile) === 'validate-codex-handoff-packets-v1.js') {
+    if (path.basename(targetFile) === 'validate-executor-handoff-packets-v1.js') {
       if (!hasDomain) {
         return { pass: false, reason: 'missing handoff keyword' };
       }

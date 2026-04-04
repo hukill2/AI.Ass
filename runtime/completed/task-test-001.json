@@ -1,0 +1,30 @@
+{
+  "task_id": "test-001",
+  "title": "Test Approval Flow",
+  "status": "Completed",
+  "decision": null,
+  "risk": "Low",
+  "route_target": "Local",
+  "needs_approval": true,
+  "execution_allowed": false,
+  "trigger_reason": "Validate review workflow",
+  "operator_notes": "",
+  "revised_instructions": "",
+  "sync_status": "Synced",
+  "notion_page_id": "3340f028-0c2b-814e-9ae8-c17f49136044",
+  "notion_url": "https://www.notion.so/Test-Approval-Flow-3340f0280c2b814e9ae8c17f49136044",
+  "created_at": "2026-03-31T15:46:00.000Z",
+  "updated_at": "2026-04-04T07:34:36.169Z",
+  "body": {
+    "summary": "",
+    "full_context": "",
+    "proposed_action": "",
+    "why_this_was_triggered": "",
+    "risk_assessment": "",
+    "suggested_route": "",
+    "affected_components": "",
+    "operator_notes": "",
+    "revised_instructions": "",
+    "final_outcome": "Task hypothesis formulated for execution under OS-V1 \nstandards."
+  }
+}

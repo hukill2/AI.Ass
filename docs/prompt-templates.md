@@ -77,7 +77,7 @@ At the end, report:
 ### Alignment review / planning prompt
 > Template:
 ```
-Use this before work starts if you want Codex to inspect first and propose the smallest change set.
+Use this before work starts if you want executor to inspect first and propose the smallest change set.
 
 Before making changes, give me a subsystem alignment review for this subsystem:
 
@@ -101,7 +101,7 @@ Constraints:
 ### Standard execution prompt
 > Template:
 ```
-Use this after alignment when you want Codex to actually do the subsystem.
+Use this after alignment when you want executor to actually do the subsystem.
 
 Proceed with the subsystem implementation.
 
@@ -126,7 +126,7 @@ At the end, report:
 ### “Do not drift / finish the work” prompt
 > Template:
 ```
-Use this when Codex asks you unnecessary questions or says “tell me which doc to touch.”
+Use this when executor asks you unnecessary questions or says “tell me which doc to touch.”
 
 Do not treat the previous reply as subsystem completion.
 
@@ -159,7 +159,7 @@ Deliverable at the end:
 ### Closeout prompt
 > Template:
 ```
-Use this when the subsystem work is done and you want Codex to finish it cleanly.
+Use this when the subsystem work is done and you want executor to finish it cleanly.
 
 This subsystem is complete. Close it out fully.
 
@@ -239,7 +239,7 @@ Constraints:
 ### Validation prompt
 > Template:
 ```
-Use this when you want Codex to run checks before claiming completion.
+Use this when you want executor to run checks before claiming completion.
 
 Run final narrow subsystem\-relevant validation for this subsystem.
 
@@ -264,7 +264,7 @@ Do not broaden scope or touch unrelated files.
 ### Commit inconsistency / audit prompt
 > Template:
 ```
-Use this when Codex claims code \+ doc changes but only staged or committed one of them.
+Use this when executor claims code \+ doc changes but only staged or committed one of them.
 
 The closeout is not yet trustworthy as written.
 
@@ -297,7 +297,7 @@ Report back with:
 ### Next subsystem suggestion prompt
 > Template:
 ```
-Use this when you want Codex to recommend what comes next.
+Use this when you want executor to recommend what comes next.
 
 Suggest the next narrow subsystem from here.
 

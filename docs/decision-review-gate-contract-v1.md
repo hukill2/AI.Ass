@@ -1,11 +1,11 @@
-﻿# Decision Review Gate Contract v1
+# Decision Review Gate Contract v1
 
 ## Purpose
 Defines how structured assistant decisions are classified before the operator review gate records them in runtime/decision-reviews.v1.json.
 
 ## Scope
 - Reads the latest decision from runtime/assistant-decisions.v1.json (version v1).
-- The runner is scripts/classify-assistant-decision-v1.js; it does not execute code, call Codex/Claude, send Telegram, or push to Notion.
+- The runner is scripts/classify-assistant-decision-v1.js; it does not execute code, call executor/Claude, send Telegram, or push to Notion.
 - Each classification appends a review record to runtime/decision-reviews.v1.json (version v1).
 
 ## Classification heuristics implemented in scripts/classify-assistant-decision-v1.js
@@ -27,6 +27,6 @@ Each persisted review record contains the following fields.
 
 ## Guardrails
 - Classification is not approval. Only the operator may change operator_status (see the status rules doc).
-- Informational records are stored for visibility only; they do not trigger execution or Codex calls.
+- Informational records are stored for visibility only; they do not trigger execution or executor calls.
 - Approval-required classifications should be handled explicitly by operators; they are flagged as explicit-approval-required in recommended_action.
 - Future automation must route through this gate so decisions remain human-reviewable before any downstream execution layer runs.

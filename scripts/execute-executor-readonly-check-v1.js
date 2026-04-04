@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node scripts/execute-codex-readonly-check-v1.js --execution-id <id>
+// Usage: node scripts/execute-executor-readonly-check-v1.js --execution-id <id>
 
 const fs = require('fs');
 const path = require('path');
@@ -19,8 +19,8 @@ if (!executionId) {
 const reviews = (load('runtime/decision-reviews.v1.json').reviews) || [];
 const candidates = (load('runtime/execution-candidates.v1.json').candidates) || [];
 const payloads = (load('runtime/executor-payloads.v1.json').payloads) || [];
-const handoffs = (load('runtime/codex-handoff-packets.v1.json').packets) || [];
-const previews = (load('runtime/codex-invocation-previews.v1.json').previews) || [];
+const handoffs = (load('runtime/executor-handoff-packets.v1.json').packets) || [];
+const previews = (load('runtime/executor-invocation-previews.v1.json').previews) || [];
 const logsPath = path.resolve(__dirname, '..', 'runtime', 'execution-logs.v1.json');
 let logsDoc;
 try {
@@ -40,9 +40,9 @@ const payload = candidate ? payloads.find((p) => p.execution_id === executionId)
 const handoff = payload ? handoffs.find((p) => p.payload_id === payload.payload_id) : undefined;
 const preview = handoff ? previews.find((p) => p.handoff_id === handoff.handoff_id) : undefined;
 
-const realExecutorExists = logsDoc.logs.some((log) => log.execution_id === executionId && log.executor !== 'codex-dryrun' && log.executor !== 'codex-readonly-check');
+const realExecutorExists = logsDoc.logs.some((log) => log.execution_id === executionId && log.executor !== 'executor-dryrun' && log.executor !== 'executor-readonly-check');
 let executionResult = 'no_change';
-let note = 'Read-only pre-execution eligibility check; no Codex invocation performed.';
+let note = 'Read-only pre-execution eligibility check; no executor invocation performed.';
 
 if (
   !candidate ||
@@ -59,7 +59,7 @@ if (
 }
 if (realExecutorExists) {
   executionResult = 'blocked';
-  note = 'Read-only check blocked because a real Codex executor log already exists for this execution_id.';
+  note = 'Read-only check blocked because a real executor executor log already exists for this execution_id.';
 }
 
 const logEntry = {
@@ -70,7 +70,7 @@ const logEntry = {
   payload_id: payload ? payload.payload_id : 'n/a',
   handoff_id: handoff ? handoff.handoff_id : 'n/a',
   preview_id: preview ? preview.preview_id : 'n/a',
-  executor: 'codex-readonly-check',
+  executor: 'executor-readonly-check',
   execution_result: executionResult,
   files_changed: [],
   notes: note,
@@ -80,7 +80,7 @@ const logEntry = {
 logsDoc.logs.push(logEntry);
 fs.writeFileSync(logsPath, JSON.stringify(logsDoc, null, 2) + '\n', 'utf8');
 
-console.log('Codex read-only check log recorded.');
+console.log('executor read-only check log recorded.');
 console.log(`execution_id: ${executionId}`);
 console.log(`review_id: ${logEntry.review_id}`);
 console.log(`decision_id: ${logEntry.decision_id}`);

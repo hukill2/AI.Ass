@@ -100,7 +100,7 @@ const attemptedLocallyFirst = logsForCandidate.some(entry => {
 
 const routeUsed = (() => {
   const executor = (finalLog.executor || '').toLowerCase();
-  if (executor.includes('codex')) return 'Codex';
+  if (executor.includes('executor')) return 'executor';
   if (executor.includes('qwen') || executor.includes('local')) return 'Local';
   if (executor.includes('write')) return 'Write';
   return finalLog.executor || 'Unknown';

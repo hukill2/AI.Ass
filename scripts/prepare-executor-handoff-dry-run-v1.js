@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node scripts/prepare-codex-handoff-dry-run-v1.js --payload-id <id>
+// Usage: node scripts/prepare-executor-handoff-dry-run-v1.js --payload-id <id>
 
 const fs = require('fs');
 const path = require('path');
@@ -23,7 +23,7 @@ if (!payloadId) {
 }
 
 const payloadsDoc = loadJson('runtime/executor-payloads.v1.json');
-const handoffPath = path.resolve(__dirname, '..', 'runtime', 'codex-handoff-packets.v1.json');
+const handoffPath = path.resolve(__dirname, '..', 'runtime', 'executor-handoff-packets.v1.json');
 let handoffDoc;
 try {
   handoffDoc = JSON.parse(fs.readFileSync(handoffPath, 'utf8'));
@@ -64,7 +64,7 @@ const packet = {
   review_id: payload.review_id,
   decision_id: payload.decision_id,
   task_id: payload.task_id,
-  executor_target: 'codex',
+  executor_target: 'executor',
   recommended_next_step: payload.recommended_next_step,
   files_to_create_or_update: Array.isArray(payload.files_to_create_or_update) ? payload.files_to_create_or_update.slice() : [],
   reasoning: payload.reasoning || '',
@@ -76,7 +76,7 @@ const packet = {
 handoffDoc.packets.push(packet);
 fs.writeFileSync(handoffPath, JSON.stringify(handoffDoc, null, 2) + '\n', 'utf8');
 
-console.log('Codex handoff packet prepared.');
+console.log('executor handoff packet prepared.');
 console.log(`payload_id: ${packet.payload_id}`);
 console.log(`execution_id: ${packet.execution_id}`);
 console.log(`decision_id: ${packet.decision_id}`);

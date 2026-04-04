@@ -4,7 +4,7 @@
     {
       "task_id": "test-001",
       "title": "Test Approval Flow",
-      "status": "Pending Review",
+      "status": "Approved",
       "decision": null,
       "risk": "Low",
       "route_target": "Local",

@@ -30,7 +30,7 @@ Clarify the supervised workflow meanings of write-attempted, write-succeeded, an
 - Keep write scope narrow in v1.
 
 ## Fidelity note
-`scripts/execute-local-write-v1.js` previously insisted the generated stdout for `scripts/validate-codex-handoff-packets-v1.js` repeat the literal basename, so compliant output kept getting rejected even after the validator itself was correct. The gate was relaxed just for that target: a handoff-keyword match is now enough while all other targets still require their own file-specific checks. The verified write log `write-1775083892143` demonstrates the corrected path.
+`scripts/execute-local-write-v1.js` previously insisted the generated stdout for `scripts/validate-executor-handoff-packets-v1.js` repeat the literal basename, so compliant output kept getting rejected even after the validator itself was correct. The gate was relaxed just for that target: a handoff-keyword match is now enough while all other targets still require their own file-specific checks. The verified write log `write-1775083892143` demonstrates the corrected path.
 
 ## Execution-candidate reporting & validation layer
 AI.Ass now publishes a full surface of execution-candidate visibility tools so operators can trust the pipeline end-to-end:

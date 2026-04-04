@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Usage: node scripts/list-codex-invocation-previews-v1.js
+// Usage: node scripts/list-executor-invocation-previews-v1.js
 
 const fs = require('fs');
 const path = require('path');
 
-const filePath = path.resolve(__dirname, '..', 'runtime', 'codex-invocation-previews.v1.json');
+const filePath = path.resolve(__dirname, '..', 'runtime', 'executor-invocation-previews.v1.json');
 let doc;
 try {
   doc = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 } catch (err) {
-  console.error(`Failed to read Codex invocation previews: ${err.message}`);
+  console.error(`Failed to read executor invocation previews: ${err.message}`);
   process.exit(1);
 }
 
 const previews = Array.isArray(doc.previews) ? doc.previews : [];
-console.log('--- Codex Invocation Previews ---');
+console.log('--- executor Invocation Previews ---');
 console.log(`Total previews: ${previews.length}`);
 for (const preview of previews) {
   console.log(`- preview_id: ${preview.preview_id}`);

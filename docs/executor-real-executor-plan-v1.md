@@ -1,7 +1,7 @@
-# Codex Real Executor Plan v1
+# executor Real Executor Plan v1
 
 ## Purpose
-Defines the first real Codex execution plan once the dry-run chain has been validated end to end.
+Defines the first real executor execution plan once the dry-run chain has been validated end to end.
 
 ## Preconditions
 Real execution may only occur when:

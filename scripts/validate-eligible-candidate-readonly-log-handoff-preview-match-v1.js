@@ -4,8 +4,8 @@ const path = require('path');
 
 const CANDIDATES_PATH = path.resolve(__dirname, '../runtime/execution-candidates.v1.json');
 const LOGS_PATH = path.resolve(__dirname, '../runtime/execution-logs.v1.json');
-const HANDOFF_PATH = path.resolve(__dirname, '../runtime/codex-handoff-packets.v1.json');
-const PREVIEW_PATH = path.resolve(__dirname, '../runtime/codex-invocation-previews.v1.json');
+const HANDOFF_PATH = path.resolve(__dirname, '../runtime/executor-handoff-packets.v1.json');
+const PREVIEW_PATH = path.resolve(__dirname, '../runtime/executor-invocation-previews.v1.json');
 
 function fail(message) {
   console.error(`Eligible candidate readonly log handoff/preview match error: ${message}`);
@@ -53,7 +53,7 @@ if (!decisionId) {
 
 const handoffDoc = loadJson(HANDOFF_PATH);
 if (!Array.isArray(handoffDoc.packets)) {
-  fail('"packets" array missing in codex-handoff-packets.v1.json');
+  fail('"packets" array missing in executor-handoff-packets.v1.json');
 }
 const handoffEntry = handoffDoc.packets.find((entry) => entry && entry.decision_id === decisionId);
 if (!handoffEntry || typeof handoffEntry.handoff_id !== 'string' || !handoffEntry.handoff_id.trim()) {
@@ -63,7 +63,7 @@ const handoffId = handoffEntry.handoff_id.trim();
 
 const previewDoc = loadJson(PREVIEW_PATH);
 if (!Array.isArray(previewDoc.previews)) {
-  fail('"previews" array missing in codex-invocation-previews.v1.json');
+  fail('"previews" array missing in executor-invocation-previews.v1.json');
 }
 const previewEntry = previewDoc.previews.find((entry) => entry && entry.decision_id === decisionId);
 if (!previewEntry || typeof previewEntry.preview_id !== 'string' || !previewEntry.preview_id.trim()) {

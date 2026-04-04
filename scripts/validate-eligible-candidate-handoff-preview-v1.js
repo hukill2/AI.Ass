@@ -4,8 +4,8 @@ const path = require('path');
 
 const CANDIDATES_PATH = path.resolve(__dirname, '../runtime/execution-candidates.v1.json');
 const LOGS_PATH = path.resolve(__dirname, '../runtime/execution-logs.v1.json');
-const HANDOFF_PATH = path.resolve(__dirname, '../runtime/codex-handoff-packets.v1.json');
-const PREVIEW_PATH = path.resolve(__dirname, '../runtime/codex-invocation-previews.v1.json');
+const HANDOFF_PATH = path.resolve(__dirname, '../runtime/executor-handoff-packets.v1.json');
+const PREVIEW_PATH = path.resolve(__dirname, '../runtime/executor-invocation-previews.v1.json');
 
 function fail(message) {
   console.error(`Eligible candidate artifact error: ${message}`);
@@ -89,18 +89,18 @@ const { handoff_id: handoffId, preview_id: previewId } = eligibleLog;
 
 const handoffDoc = loadJson(HANDOFF_PATH);
 if (!Array.isArray(handoffDoc.packets)) {
-  fail('"packets" array missing in codex handoff packets');
+  fail('"packets" array missing in executor handoff packets');
 }
 if (!handoffDoc.packets.find((packet) => packet.handoff_id === handoffId)) {
-  fail(`no codex handoff packet found for handoff_id=${handoffId}`);
+  fail(`no executor handoff packet found for handoff_id=${handoffId}`);
 }
 
 const previewDoc = loadJson(PREVIEW_PATH);
 if (!Array.isArray(previewDoc.previews)) {
-  fail('"previews" array missing in codex invocation previews');
+  fail('"previews" array missing in executor invocation previews');
 }
 if (!previewDoc.previews.find((preview) => preview.preview_id === previewId)) {
-  fail(`no codex invocation preview found for preview_id=${previewId}`);
+  fail(`no executor invocation preview found for preview_id=${previewId}`);
 }
 
 console.log(`Eligible execution_id=${execId} has linked handoff=${handoffId} and preview=${previewId}.`);

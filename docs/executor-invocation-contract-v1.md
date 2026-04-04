@@ -1,4 +1,4 @@
-﻿# Executor Invocation Contract v1
+# Executor Invocation Contract v1
 
 ## Purpose
 This file defines what a future execution layer must receive and return when acting on a handoff-eligible execution candidate so the entire pipeline stays explicit and reviewable.
@@ -6,7 +6,7 @@ This file defines what a future execution layer must receive and return when act
 ## Scope
 - Applies only to handoff-eligible items from `runtime/execution-candidates.v1.json`.
 - Does not execute anything yet.
-- Does not call Codex yet.
+- Does not call executor yet.
 - Does not call Claude.
 - Does not send Telegram.
 - Does not write back to Notion.

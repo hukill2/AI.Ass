@@ -24,7 +24,7 @@ This spec defines a minimal “operator workflow wrapper” that coordinates the
   * When the flag is absent, the wrapper inspects `runtime/execution-candidates.v1.json` to see if exactly one candidate is `awaiting_execution` or `execution_prepared`. If such a single eligible candidate exists, the wrapper auto-selects that execution ID and runs the readiness checker; otherwise it logs `Skipping local write readiness check: ...` (zero or multiple eligible candidates) and proceeds with the remaining validators without failing. Operators can rerun `node scripts/list-write-ready-candidates-v1.js` to view the current eligible set and use `node scripts/validate-execution-candidates-schema-v1.js` after manually updating the ledger to ensure the expected fields/statuses exist before relying on auto-selection.
 
 ## Reference materials
-- The AI prompt templates for Codex, Claude, and Claude Code live at `C:\AI.Ass\AI Prompt Templates.docx`. Refer to that document when gathering standardized wording or context before having the assistant reach out to Codex/Claude. No automation currently consumes it yet; the doc simply centralizes the text for future use.
+- The AI prompt templates for executor, Claude, and Claude Code live at `C:\AI.Ass\AI Prompt Templates.docx`. Refer to that document when gathering standardized wording or context before having the assistant reach out to executor/Claude. No automation currently consumes it yet; the doc simply centralizes the text for future use.
 - The current repo mirror for those prompts lives at `C:\AI.Ass\docs\prompt-templates.md`. Prompt-related scripts read the markdown mirror, while the `.docx` file remains a human reference/staging source.
 
 ## Steps & Script Mapping

@@ -111,25 +111,25 @@ if (!dryrunSuccess.length) {
 
 const latestDryrun = dryrunSuccess[dryrunSuccess.length - 1];
 
-const handoff = load(path.resolve(__dirname, '../runtime/codex-handoff-packets.v1.json'));
+const handoff = load(path.resolve(__dirname, '../runtime/executor-handoff-packets.v1.json'));
 if (!handoff) {
-  console.error('Missing Codex handoff packet store.');
+  console.error('Missing executor handoff packet store.');
   process.exit(1);
 }
 const handoffEntry = handoff.packets.find((item) => item.handoff_id === handoffId);
 if (!handoffEntry) {
-  console.error(`No Codex handoff packet found for handoff_id=${handoffId}.`);
+  console.error(`No executor handoff packet found for handoff_id=${handoffId}.`);
   process.exit(1);
 }
 
-const previewStore = load(path.resolve(__dirname, '../runtime/codex-invocation-previews.v1.json'));
+const previewStore = load(path.resolve(__dirname, '../runtime/executor-invocation-previews.v1.json'));
 if (!previewStore) {
-  console.error('Missing Codex invocation preview store.');
+  console.error('Missing executor invocation preview store.');
   process.exit(1);
 }
 const previewEntry = previewStore.previews.find((item) => item.preview_id === previewId);
 if (!previewEntry) {
-  console.error(`No Codex invocation preview found for preview_id=${previewId}.`);
+  console.error(`No executor invocation preview found for preview_id=${previewId}.`);
   process.exit(1);
 }
 

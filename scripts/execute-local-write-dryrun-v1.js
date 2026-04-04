@@ -20,8 +20,8 @@ const reviews = load('runtime/decision-reviews.v1.json').reviews || [];
 const candidates = load('runtime/execution-candidates.v1.json').candidates || [];
 const logs = load('runtime/execution-logs.v1.json').logs || [];
 const payloads = load('runtime/executor-payloads.v1.json').payloads || [];
-const handoffs = load('runtime/codex-handoff-packets.v1.json').packets || [];
-const previews = load('runtime/codex-invocation-previews.v1.json').previews || [];
+const handoffs = load('runtime/executor-handoff-packets.v1.json').packets || [];
+const previews = load('runtime/executor-invocation-previews.v1.json').previews || [];
 const dryrunPath = path.resolve(__dirname, '..', 'runtime', 'write-execution-dryrun-logs.v1.json');
 let dryrunDoc;
 try {

@@ -1,28 +1,28 @@
-# Codex Execution Contract v1
+# executor Execution Contract v1
 
 ## Purpose
-Defines the minimum conditions and data required before AI.Ass can invoke Codex for a real execution run while keeping everything explicit and reviewable.
-Consult `docs/operator-runbook-and-usage-layer-v1.md` for the executor readiness overview that explains how Codex execution builds on the readonly and write layers.
+Defines the minimum conditions and data required before AI.Ass can invoke executor for a real execution run while keeping everything explicit and reviewable.
+Consult `docs/operator-runbook-and-usage-layer-v1.md` for the executor readiness overview that explains how executor execution builds on the readonly and write layers.
 
 ## Scope
 - Applies only to candidates that already have:
   - an approved review
   - an execution candidate
   - a prepared executor payload
-  - a Codex handoff packet
-  - a Codex invocation preview
+  - a executor handoff packet
+  - a executor invocation preview
 - Does not implement execution yet.
 - Does not send Telegram.
 - Does not write back to Notion yet.
 
 ## Minimum Execution Preconditions
-Real Codex execution may only occur when:
+Real executor execution may only occur when:
 - review classification = approval-required
 - operator_status = approved
 - execution_status = awaiting_execution
 - a prepared payload exists
-- a prepared Codex handoff packet exists
-- a prepared Codex invocation preview exists
+- a prepared executor handoff packet exists
+- a prepared executor invocation preview exists
 - the candidate remains valid and reviewable
 
 ## Minimum Executor Inputs
@@ -65,7 +65,7 @@ The executor must receive:
 - `no_change`
 
 ## Guardrails
-- Codex execution must stay explicit and reviewable.
+- executor execution must stay explicit and reviewable.
 - Do not execute without the full reviewed chain.
 - Execution success is separate from prior approval.
 - Record logs after every real run.

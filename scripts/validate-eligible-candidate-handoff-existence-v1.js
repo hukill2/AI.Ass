@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CANDIDATES_PATH = path.resolve(__dirname, '../runtime/execution-candidates.v1.json');
-const HANDOFF_PATH = path.resolve(__dirname, '../runtime/codex-handoff-packets.v1.json');
+const HANDOFF_PATH = path.resolve(__dirname, '../runtime/executor-handoff-packets.v1.json');
 
 function fail(message) {
   console.error(`Eligible candidate handoff existence error: ${message}`);
@@ -52,7 +52,7 @@ if (!decisionId) {
 
 const handoffDoc = loadJson(HANDOFF_PATH);
 if (!Array.isArray(handoffDoc.packets)) {
-  fail('"packets" array missing in codex-handoff-packets.v1.json');
+  fail('"packets" array missing in executor-handoff-packets.v1.json');
 }
 
 const handoffEntry = handoffDoc.packets.find((entry) => entry && entry.decision_id === decisionId);

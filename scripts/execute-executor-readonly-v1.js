@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node scripts/execute-codex-readonly-v1.js --execution-id <id>
+// Usage: node scripts/execute-executor-readonly-v1.js --execution-id <id>
 
 const fs = require('fs');
 const path = require('path');
@@ -20,8 +20,8 @@ function load(relPath) {
 const reviews = (load('runtime/decision-reviews.v1.json').reviews) || [];
 const candidates = (load('runtime/execution-candidates.v1.json').candidates) || [];
 const payloads = (load('runtime/executor-payloads.v1.json').payloads) || [];
-const handoffs = (load('runtime/codex-handoff-packets.v1.json').packets) || [];
-const previews = (load('runtime/codex-invocation-previews.v1.json').previews) || [];
+const handoffs = (load('runtime/executor-handoff-packets.v1.json').packets) || [];
+const previews = (load('runtime/executor-invocation-previews.v1.json').previews) || [];
 const logsPath = path.resolve(__dirname, '..', 'runtime', 'execution-logs.v1.json');
 let logsDoc;
 try {
@@ -42,11 +42,11 @@ const handoff = payload ? handoffs.find((p) => p.payload_id === payload.payload_
 const preview = handoff ? previews.find((p) => p.handoff_id === handoff.handoff_id) : undefined;
 
 if (!candidate || !review || !payload || !handoff || !preview) {
-  console.error('Execution chain incomplete; cannot run Codex readonly.');
+  console.error('Execution chain incomplete; cannot run executor readonly.');
   process.exit(1);
 }
 if (review.operator_status !== 'approved' || !['approval-required','review-required'].includes(review.classification)) {
-  console.error('Review not approved for Codex execution.');
+  console.error('Review not approved for executor execution.');
   process.exit(1);
 }
 if (candidate.execution_status !== 'execution_prepared') {
@@ -84,7 +84,7 @@ if (spawnResult.error) {
   notes = stdoutPreview ? `Readonly output: ${stdoutPreview}` : 'Qwen returned empty readonly response.';
 }
 if (is500) {
-  notes += ' (500 Internal Server Error from Ollama; see docs/codex-real-executor-readonly-plan-v1.md)';
+  notes += ' (500 Internal Server Error from Ollama; see docs/executor-real-executor-readonly-plan-v1.md)';
 }
 notes += `; model=${modelName}; cmd=${commandDetail}`;
 

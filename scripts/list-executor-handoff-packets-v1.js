@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Usage: node scripts/list-codex-handoff-packets-v1.js
+// Usage: node scripts/list-executor-handoff-packets-v1.js
 
 const fs = require('fs');
 const path = require('path');
 
-const filePath = path.resolve(__dirname, '..', 'runtime', 'codex-handoff-packets.v1.json');
+const filePath = path.resolve(__dirname, '..', 'runtime', 'executor-handoff-packets.v1.json');
 let doc;
 try {
   doc = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 } catch (err) {
-  console.error(`Failed to read codex handoff packets: ${err.message}`);
+  console.error(`Failed to read executor handoff packets: ${err.message}`);
   process.exit(1);
 }
 
 const packets = Array.isArray(doc.packets) ? doc.packets : [];
-console.log('--- Codex Handoff Packets ---');
+console.log('--- executor Handoff Packets ---');
 console.log(`Total packets: ${packets.length}`);
 for (const packet of packets) {
   console.log(`- handoff_id: ${packet.handoff_id}`);

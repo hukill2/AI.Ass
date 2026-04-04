@@ -7,7 +7,7 @@ Refer to `docs/operator-runbook-and-usage-layer-v1.md` for the executor readines
 ## Current Executor Reality
 - The current real readonly executor uses **qwen2.5-coder:7b**.
 - Logs now use the executor label `qwen-readonly`.
-- The earlier `codex-readonly` label lived inside the dry-run planning layer.
+- The earlier `executor-readonly` label lived inside the dry-run planning layer.
 - The successful readonly execution path now runs entirely on the local model.
 
 ## Latest Successful Run

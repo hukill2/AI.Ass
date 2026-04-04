@@ -1,4 +1,4 @@
-﻿// Usage: node scripts/build-reviews-approvals-mirror-v1.js
+// Usage: node scripts/build-reviews-approvals-mirror-v1.js
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');

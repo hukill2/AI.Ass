@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node scripts/latest-codex-preview-summary-v1.js
+// Usage: node scripts/latest-executor-preview-summary-v1.js
 
 const fs = require('fs');
 const path = require('path');
@@ -11,8 +11,8 @@ function load(relPath) {
 const reviews = (load('runtime/decision-reviews.v1.json').reviews) || [];
 const candidates = (load('runtime/execution-candidates.v1.json').candidates) || [];
 const payloads = (load('runtime/executor-payloads.v1.json').payloads) || [];
-const codexPackets = (load('runtime/codex-handoff-packets.v1.json').packets) || [];
-const previews = (load('runtime/codex-invocation-previews.v1.json').previews) || [];
+const executorPackets = (load('runtime/executor-handoff-packets.v1.json').packets) || [];
+const previews = (load('runtime/executor-invocation-previews.v1.json').previews) || [];
 
 const approved = reviews
   .filter((r) => r.operator_status === 'approved')
@@ -26,10 +26,10 @@ if (!approved.length) {
 const latestReview = approved[0];
 const candidate = candidates.find((c) => c.review_id === latestReview.review_id);
 const payload = candidate ? payloads.find((p) => p.execution_id === candidate.execution_id) : undefined;
-const codex = payload ? codexPackets.find((packet) => packet.payload_id === payload.payload_id) : undefined;
-const preview = codex ? previews.find((p) => p.handoff_id === codex.handoff_id) : undefined;
+const executor = payload ? executorPackets.find((packet) => packet.payload_id === payload.payload_id) : undefined;
+const preview = executor ? previews.find((p) => p.handoff_id === executor.handoff_id) : undefined;
 
-console.log('--- Latest Codex Preview Summary ---');
+console.log('--- Latest executor Preview Summary ---');
 console.log(`review_id: ${latestReview.review_id}`);
 console.log(`decision_id: ${latestReview.decision_id}`);
 console.log(`task_id: ${latestReview.task_id}`);
@@ -38,7 +38,7 @@ console.log(`operator_status: ${latestReview.operator_status}`);
 
 if (!candidate) {
   console.log('No execution candidate linked to this review yet.');
-  console.log('Chain complete through Codex preview: no');
+  console.log('Chain complete through executor preview: no');
   process.exit(0);
 }
 console.log(`execution_id: ${candidate.execution_id}`);
@@ -46,25 +46,25 @@ console.log(`execution_status: ${candidate.execution_status}`);
 
 if (!payload) {
   console.log('No executor payload linked to this execution yet.');
-  console.log('Chain complete through Codex preview: no');
+  console.log('Chain complete through executor preview: no');
   process.exit(0);
 }
 console.log(`payload_id: ${payload.payload_id}`);
 
-if (!codex) {
-  console.log('No Codex handoff packet prepared for this payload yet.');
-  console.log('Chain complete through Codex preview: no');
+if (!executor) {
+  console.log('No executor handoff packet prepared for this payload yet.');
+  console.log('Chain complete through executor preview: no');
   process.exit(0);
 }
-console.log(`handoff_id: ${codex.handoff_id}`);
-console.log(`executor_target: ${codex.executor_target}`);
+console.log(`handoff_id: ${executor.handoff_id}`);
+console.log(`executor_target: ${executor.executor_target}`);
 
 if (!preview) {
-  console.log('No Codex invocation preview prepared for this handoff yet.');
-  console.log('Chain complete through Codex preview: no');
+  console.log('No executor invocation preview prepared for this handoff yet.');
+  console.log('Chain complete through executor preview: no');
   process.exit(0);
 }
 
 console.log(`preview_id: ${preview.preview_id}`);
-console.log('Chain complete through Codex preview: yes');
+console.log('Chain complete through executor preview: yes');
 process.exit(0);
