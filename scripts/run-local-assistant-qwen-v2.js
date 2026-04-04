@@ -7,6 +7,7 @@ const ROOT = path.join(__dirname, '..');
 const CONTEXT_PATH = path.join(ROOT, 'runtime', 'task-context.v1.json');
 const OUTPUT_PATH = path.join(ROOT, 'runtime', 'local-assistant-response.v2.json');
 const DECISIONS_PATH = path.join(ROOT, 'runtime', 'assistant-decisions.v1.json');
+const RAW_OUTPUT_PATH = path.join(ROOT, 'runtime', 'local-assistant-response.raw.txt');
 
 if (!fs.existsSync(CONTEXT_PATH)) {
   console.error('Missing task context file:', CONTEXT_PATH);
@@ -65,12 +66,16 @@ if (cmd.status !== 0) {
 
 const rawOutput = cmd.stdout;
 fs.writeFileSync(OUTPUT_PATH, rawOutput);
+fs.writeFileSync(RAW_OUTPUT_PATH, rawOutput);
+console.log('Model response stored to:', OUTPUT_PATH);
+console.log('Raw model output stored to:', RAW_OUTPUT_PATH);
 
 let parsed;
 try {
-  parsed = JSON.parse(cleanJson(rawOutput));
+  parsed = parseModelResponse(rawOutput);
 } catch (err) {
   console.error('Model returned invalid JSON:', err.message);
+  console.error(`Inspect the raw response in ${RAW_OUTPUT_PATH} for debugging.`);
   process.exit(1);
 }
 
@@ -113,6 +118,66 @@ fs.writeFileSync(DECISIONS_PATH, `${JSON.stringify(decisionsData, null, 2)}\n`);
 console.log('Model used: qwen2.5-coder:7b');
 console.log('Structured response written to:', OUTPUT_PATH);
 console.log('Parsed structured response:', parsed);
+
+function parseModelResponse(raw) {
+  const cleaned = cleanJson(raw);
+  try {
+    return JSON.parse(cleaned);
+  } catch (firstErr) {
+    const escaped = escapeControlCharsInStrings(cleaned);
+    if (escaped !== cleaned) {
+      try {
+        console.warn('Escaped stray control characters inside strings to recover the JSON payload.');
+        return JSON.parse(escaped);
+      } catch (secondErr) {
+        throw new Error(`${secondErr.message} (after escaping control characters)`);
+      }
+    }
+    throw firstErr;
+  }
+}
+
+function escapeControlCharsInStrings(text) {
+  const controlMap = {
+    0x08: '\\b',
+    0x09: '\\t',
+    0x0a: '\\n',
+    0x0c: '\\f',
+    0x0d: '\\r',
+  };
+  let result = '';
+  let inString = false;
+  let escaped = false;
+  for (const char of text) {
+    const code = char.charCodeAt(0);
+    if (escaped) {
+      result += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      result += char;
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+    if (inString && code < 0x20) {
+      const mapped = controlMap[code];
+      if (mapped) {
+        result += mapped;
+      } else {
+        result += `\\u${code.toString(16).padStart(4, '0')}`;
+      }
+      continue;
+    }
+    result += char;
+  }
+  return result;
+}
 
 function cleanJson(text) {
   const trimmed = text.trim();

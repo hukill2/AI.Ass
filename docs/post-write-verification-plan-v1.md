@@ -24,6 +24,7 @@ Explain that this file defines how AI.Ass should verify a written artifact immed
 - Record that verification was attempted and whether it passed or failed.
 - Capture concise verification notes and the command(s) used.
 - State whether verification alters the interpretation of the write result.
+- Use `node scripts/list-write-verified-executions-v1.js` to surface the verified write logs; this script echoes the verification command so reviewers can replay the exact `node --check` invocation for each bounded artifact.
 
 ## Result Handling
 - Track write success and verification success separately.
@@ -35,4 +36,3 @@ Explain that this file defines how AI.Ass should verify a written artifact immed
 - Keep verification within the narrow v1 write scope.
 - Verification commands should be explicit, deterministic, and minimal.
 - Operator review remains authoritative.
-

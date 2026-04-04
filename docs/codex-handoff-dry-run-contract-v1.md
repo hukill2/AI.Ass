@@ -43,3 +43,11 @@ Defines the structure for a future Codex handoff packet while keeping the workfl
 - Do not make silent project changes.
 - Do not bypass approvals.
 - Fail clearly if the payload is missing or invalid before creating a handoff packet.
+
+## Payload preparation helper
+`scripts/prepare-codex-handoff-dry-run-v1.js` is the helper that builds the handoff packet from a prepared executor payload:
+- It accepts `--payload-id` and fails if the payload cannot be found in `runtime/executor-payloads.v1.json`.
+- The payload must expose the string fields `execution_id`, `review_id`, `decision_id`, `task_id`, `recommended_next_step`, and `prepared_at`; missing or empty fields cause the helper to abort.
+- Only one handoff packet per `payload_id` is allowed; rerunning the helper for the same payload logs the existing packet count and exits without duplication.
+- Successful runs append a packet to `runtime/codex-handoff-packets.v1.json` using the payload metadata plus the generated `handoff_id` and `executor_target = "codex"`.
+- The helper prints the payload/execution/decision/handoff IDs and the total packet count so operators can verify the result immediately.

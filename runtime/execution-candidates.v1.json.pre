@@ -1,0 +1,156 @@
+{
+  "version": "v1",
+  "candidates": [
+    {
+      "execution_id": "exec-1775017171168-1",
+      "review_id": "review-1775016227271",
+      "decision_id": "dec-1775016225064",
+      "task_id": "task-001",
+    "execution_status": "execution_prepared",
+      "recommended_next_step": "Implement the step that reads mirrored files and prepares context for routing.",
+      "files_to_create_or_update": [
+        "runtime/read_mirrored_files.js"
+      ],
+      "reasoning": "The task requires reading mirrored files to gather context necessary for routing. This involves creating a script in the runtime directory to handle file reading and data preparation.",
+      "risks_or_guardrails": [
+        {
+          "risk": "File integrity",
+          "guardrail": "Ensure that only trusted sources are read from the mirror to prevent malicious or corrupted data."
+        },
+        {
+          "risk": "Performance impact",
+          "guardrail": "Optimize file reading and processing to avoid excessive resource consumption, especially if the mirrored files are large."
+        }
+      ],
+      "operator_notes": "Explicit operator approval pending execution layer only.",
+      "created_at": "2026-04-01T04:19:31.168Z",
+      "updated_at": "2026-04-01T05:04:35.313Z"
+    },
+    {
+      "execution_id": "exec-1775022550114-1",
+      "review_id": "review-1775022185635",
+      "decision_id": "dec-1775022183358",
+      "task_id": "task-001",
+    "execution_status": "awaiting_execution",
+      "recommended_next_step": "Create a validator script for the existing JSON lane.",
+      "files_to_create_or_update": [
+        "scripts/validate-json-lane.js"
+      ],
+      "reasoning": "To add one validator script for a single existing JSON lane, we need to create a JavaScript file that will validate the JSON data according to predefined rules. This script will be placed in the 'scripts/' directory.",
+      "risks_or_guardrails": [
+        "Ensure that the validator script does not introduce new vulnerabilities or bugs.",
+        "The validation logic should be thoroughly tested to cover all possible edge cases."
+      ],
+      "operator_notes": "Approved narrowed write-safe follow-up for new execution path.",
+      "created_at": "2026-04-01T05:49:10.114Z",
+      "updated_at": "2026-04-01T14:28:59.281Z"
+    },
+    {
+      "execution_id": "exec-1775060315230-1",
+      "review_id": "review-1775059561791",
+      "decision_id": "dec-1775059559133",
+      "task_id": "task-001",
+      "execution_status": "execution_prepared",
+      "recommended_next_step": "Create a validator script for the Codex handoff packet lane based on existing system rules and architecture guidelines.",
+      "files_to_create_or_update": [
+        "runtime/validators/codex_handoff_validator.py"
+      ],
+      "reasoning": "To add a validator script for the Codex handoff packet lane, we need to create a Python script that checks if the incoming data meets the expected format and criteria as defined in our system rules and architecture. This will ensure that only valid packets are processed by Codex, thereby maintaining the integrity and security of the system.",
+      "risks_or_guardrails": [
+        {
+          "risk": "Processing invalid packets could lead to errors or failures in the system.",
+          "guardrail": "The validator script must strictly adhere to predefined rules and schema for incoming data."
+        },
+        {
+          "risk": "Unauthorized access to packet data could compromise sensitive information.",
+          "guardrail": "Access to the packet data should be restricted only to authorized personnel."
+        }
+      ],
+      "operator_notes": "Approved second narrow write-safe follow-up for codex handoff validator.",
+      "created_at": "2026-04-01T16:18:35.230Z",
+      "updated_at": "2026-04-01T16:22:35.025Z"
+    },
+    {
+    "execution_id": "exec-1775061631751-1",
+    "review_id": "review-1775061114375",
+    "decision_id": "dec-1775061111940",
+    "task_id": "task-001",
+    "execution_status": "execution_prepared",
+      "recommended_next_step": "Update scripts/validate-codex-handoff-packets-v1.js to require executor_target, payload_id, and execution_id in each handoff packet.",
+      "files_to_create_or_update": [
+        "scripts/validate-codex-handoff-packets-v1.js"
+      ],
+      "reasoning": "This update ensures that all handoff packets contain essential metadata for proper processing and validation.",
+      "risks_or_guardrails": [
+        "Potential failure if existing packets do not include the required fields",
+        "Ensure scripts/validate-codex-handoff-packets-v1.js handles missing or incorrect fields gracefully"
+      ],
+      "operator_notes": "Approved second concrete validator enhancement.",
+      "created_at": "2026-04-01T16:40:31.751Z",
+      "updated_at": "2026-04-01T16:44:20.101Z"
+    },
+    {
+      "execution_id": "exec-1775064296687-1",
+      "review_id": "review-1775064090103",
+      "decision_id": "dec-1775064087666",
+      "task_id": "task-001",
+      "execution_status": "execution_prepared",
+      "recommended_next_step": "Modify the script to filter review records based on the specified criteria.",
+      "files_to_create_or_update": [
+        "scripts/list-approved-awaiting-execution-v1.js"
+      ],
+      "reasoning": "The task requires updating an existing script to include filtering logic for review records that have a classification of 'approval-required' and an operator_status of 'approved'. This ensures that only relevant records are listed.",
+      "risks_or_guardrails": [
+        {
+          "risk": "Incorrect filtering could lead to missing or erroneous data being processed.",
+          "guardrail": "Carefully test the script with various data points to ensure it accurately filters the records."
+        },
+        {
+          "risk": "Modifying the script without proper testing could break existing functionality.",
+          "guardrail": "Create a backup of the original script before making changes and thoroughly test the updated version in a controlled environment."
+        }
+      ],
+      "operator_notes": "Approved third concrete reporting helper update.",
+      "created_at": "2026-04-01T17:24:56.687Z",
+      "updated_at": "2026-04-01T17:29:14.105Z"
+    },
+    {
+      "execution_id": "exec-1775065549613-1",
+      "review_id": "review-1775065435013",
+      "decision_id": "dec-1775065310412",
+      "task_id": "task-001",
+      "execution_status": "execution_prepared",
+      "recommended_next_step": "implementation",
+      "files_to_create_or_update": [
+        "scripts/validate-executor-payloads-helper-v1.js"
+      ],
+      "reasoning": "The task requires creating a script to validate the structure and required fields of runtime/executor-payloads.v1.json. This is an implementation task as it involves writing code.",
+      "risks_or_guardrails": [
+        "Ensure that the script does not introduce vulnerabilities or errors into the system.",
+        "Verify that all required fields are correctly identified and validated."
+      ],
+      "operator_notes": "Approved replacement third validator helper.",
+      "created_at": "2026-04-01T17:45:49.613Z",
+      "updated_at": "2026-04-01T17:56:31.972Z"
+    },
+    {
+      "execution_id": "exec-1775066846831-1",
+      "review_id": "review-1775066690860",
+      "decision_id": "dec-1775066688381",
+      "task_id": "task-001",
+      "execution_status": "execution_prepared",
+      "recommended_next_step": "Update the scripts/validate-json-lane.js file to include a check for the input file's existence and exit with code 2 if it is missing. Keep invalid JSON as exit code 1.",
+      "files_to_create_or_update": [
+        "scripts/validate-json-lane.js"
+      ],
+      "reasoning": "The task requires modifying an existing script to handle different exit conditions based on the presence of an input file. This change will enhance the robustness and reliability of the script, ensuring it behaves as expected under various scenarios.",
+      "risks_or_guardrails": [
+        "Ensure that the updated script does not introduce new bugs or unexpected behavior.",
+        "Verify that the script correctly handles both existing and non-existing files without altering its current functionality for valid JSON input."
+      ],
+      "operator_notes": "Approved third validator exit-code update.",
+      "created_at": "2026-04-01T18:07:26.831Z",
+      "updated_at": "2026-04-01T18:10:14.371Z"
+    }
+  ]
+}

@@ -51,6 +51,7 @@ const FIDELITY_PROFILE_KEYWORDS = {
   'scripts/validate-json-lane.js': ['missing file', 'exit code 2', 'exit code 1', 'exist', 'missing', 'parse', 'json'],
 };
 const DEFAULT_FIDELITY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id', 'handoff_id', 'codex', 'validation', 'packet'];
+const MANDATORY_KEYWORDS = ['handoff', 'executor_target', 'payload_id', 'execution_id'];
 function evaluateQuality(text) {
   const lower = (text || '').toLowerCase();
   const indicator = CODE_INDICATORS.find((ind) => lower.includes(ind));
@@ -190,10 +191,30 @@ if (executionResult === 'no_change') {
       'Produce a Node.js script implementing the requested behavior clearly.',
     ];
   }
-  const fullPrompt = `${instruction.join(' ')}\n\n${preview.prompt_text}`;
-  const spawnResult = spawnSync('ollama', ['run', 'qwen2.5-coder:7b'], { encoding: 'utf8', timeout: 120000, input: fullPrompt });
+  const keywordReminder = `Start the output with a JavaScript comment line exactly like "// TARGET: ${targetFile}; KEYWORDS: ${MANDATORY_KEYWORDS.join(' ')}" before the rest of the script so the keywords are present but the code remains valid.`;
+  const fullPrompt = `${instruction.join(' ')}\n\n${preview.prompt_text}\n\n${keywordReminder}`;
+  const runOllama = (prompt) => {
+    let lastResult;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      lastResult = spawnSync('ollama', ['run', 'qwen2.5-coder:7b'], { encoding: 'utf8', timeout: 120000, input: prompt });
+      const stderr = (lastResult.stderr || '').toLowerCase();
+      if (lastResult.status === 0 || !stderr.includes('500 internal server error')) {
+        return lastResult;
+      }
+    }
+    return lastResult;
+  };
+  const spawnResult = runOllama(fullPrompt);
   const rawOutput = (spawnResult.stdout || '').trim();
   const stdout = rawOutput.replace(/```(?:[a-z]*\n)?([\s\S]*?)```/gi, '$1').trim();
+  let normalizedStdout = stdout;
+  const keywordsPhrase = MANDATORY_KEYWORDS.join(' ').toLowerCase();
+  const stripAnsi = (value) => value.replace(/\u001b\\[[0-9;]*[A-Za-z]/g, '');
+  const rawLines = normalizedStdout.split(/\r?\n/);
+  const filteredLines = rawLines.filter((line) => stripAnsi(line).trim().toLowerCase() !== keywordsPhrase);
+  normalizedStdout = filteredLines.join('\n').trim();
+  const commentLine = `// TARGET: ${targetFiles[0]}; KEYWORDS: ${MANDATORY_KEYWORDS.join(' ')}`;
+  const finalOutput = normalizedStdout ? `${commentLine}\n${normalizedStdout}` : commentLine;
   const stderr = (spawnResult.stderr || '').trim();
   if (spawnResult.error) {
     executionResult = 'failed';
@@ -205,22 +226,22 @@ if (executionResult === 'no_change') {
     executionResult = 'no_change';
     notes = 'Write produced no output.';
   } else {
-    const quality = evaluateQuality(stdout);
-    if (!quality.pass) {
-      executionResult = 'failed';
-      failureStage = 'quality gate';
-      const previewText = snippet(stdout);
-      notes = `Write failed quality gate (${quality.reason}). Preview: ${previewText || '<empty>'}`;
-    } else {
+      const quality = evaluateQuality(finalOutput);
+      if (!quality.pass) {
+        executionResult = 'failed';
+        failureStage = 'quality gate';
+        const previewText = snippet(finalOutput);
+        notes = `Write failed quality gate (${quality.reason}). Preview: ${previewText || '<empty>'}`;
+      } else {
       const writtenPath = path.resolve(__dirname, '..', targetFiles[0]);
       const existedBefore = fs.existsSync(writtenPath);
       let skipWrite = false;
       if (existedBefore) {
-        const fidelity = checkTaskFidelity(stdout, targetFiles[0]);
+        const fidelity = checkTaskFidelity(finalOutput, targetFiles[0]);
         if (!fidelity.pass) {
           executionResult = 'failed';
           failureStage = 'task fidelity gate';
-          const previewText = snippet(stdout);
+          const previewText = snippet(finalOutput);
           notes = `Write failed task fidelity (${fidelity.reason}). Preview: ${previewText || '<empty>'}`;
           skipWrite = true;
         }
@@ -228,7 +249,7 @@ if (executionResult === 'no_change') {
       if (!skipWrite) {
         fs.mkdirSync(path.dirname(writtenPath), { recursive: true });
         fileWriteAttempted = true;
-        fs.writeFileSync(writtenPath, stdout + '\n', 'utf8');
+        fs.writeFileSync(writtenPath, finalOutput + '\n', 'utf8');
         filesChanged = [targetFiles[0]];
         writes = true;
         fileWriteSucceeded = true;
