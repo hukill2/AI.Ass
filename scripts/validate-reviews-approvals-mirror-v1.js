@@ -1,6 +1,7 @@
 // Usage: node scripts/validate-reviews-approvals-mirror-v1.js
 const fs = require('fs');
 const path = require('path');
+const { createEmptyBody } = require('./reviews-approvals-workflow-v1');
 
 const mirrorPath = path.join(__dirname, '..', 'exports', 'reviews-approvals-mirror.v1.json');
 const errors = [];
@@ -65,20 +66,20 @@ const itemFields = [
   'notion_url',
   'created_at',
   'updated_at',
+  'workflow_stage',
+  'attempt_count',
+  'stage_retry_count',
+  'last_failure_stage',
+  'last_failure_actor',
+  'last_failure_code',
+  'last_failure_summary',
+  'escalation_reason',
+  'current_prompt_template',
+  'approval_gate',
+  'artifacts',
   'body',
 ];
-const bodyFields = [
-  'summary',
-  'full_context',
-  'proposed_action',
-  'why_this_was_triggered',
-  'risk_assessment',
-  'suggested_route',
-  'affected_components',
-  'operator_notes',
-  'revised_instructions',
-  'final_outcome',
-];
+const bodyFields = Object.keys(createEmptyBody());
 
 if (Array.isArray(json.items)) {
   json.items.forEach((item, index) => {
@@ -102,6 +103,26 @@ if (Array.isArray(json.items)) {
     }
     if ('sync_status' in item && typeof item.sync_status !== 'string') {
       errors.push(`Item ${index} sync_status must be a string.`);
+    }
+    if ('workflow_stage' in item && typeof item.workflow_stage !== 'string') {
+      errors.push(`Item ${index} workflow_stage must be a string.`);
+    }
+    if ('attempt_count' in item && typeof item.attempt_count !== 'number') {
+      errors.push(`Item ${index} attempt_count must be a number.`);
+    }
+    if ('stage_retry_count' in item && typeof item.stage_retry_count !== 'number') {
+      errors.push(`Item ${index} stage_retry_count must be a number.`);
+    }
+    ['last_failure_stage', 'last_failure_actor', 'last_failure_code', 'last_failure_summary', 'escalation_reason', 'current_prompt_template'].forEach((field) => {
+      if (field in item && typeof item[field] !== 'string') {
+        errors.push(`Item ${index} ${field} must be a string.`);
+      }
+    });
+    if ('approval_gate' in item && item.approval_gate !== null && !['prompt', 'action_plan'].includes(item.approval_gate)) {
+      errors.push(`Item ${index} approval_gate must be null, prompt, or action_plan.`);
+    }
+    if ('artifacts' in item && (typeof item.artifacts !== 'object' || item.artifacts === null || Array.isArray(item.artifacts))) {
+      errors.push(`Item ${index} artifacts must be an object.`);
     }
     ['created_at', 'updated_at'].forEach((ts) => {
       if (ts in item && typeof item[ts] !== 'string') {

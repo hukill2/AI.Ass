@@ -1,0 +1,17 @@
+{
+  "verdict": "retry",
+  "failure_code": "action_plan_guardrail_violation",
+  "failure_summary": "Action plan does not satisfy required execution or verification guardrails.",
+  "exact_problem": "Missing action-plan section: Verification:",
+  "failed_checks": [
+    "Missing action-plan section: Verification:"
+  ],
+  "required_changes": [
+    "Add the Verification section."
+  ],
+  "retryable": true,
+  "operator_message": "Why it failed: Action plan does not satisfy required execution or verification guardrails.\nWhat is wrong now: Missing action-plan section: Verification:\nWhat Qwen/Librarian already tried: Missing action-plan section: Verification:\nWhat decision or edit is needed from you: Add the Verification section.",
+  "workflow_stage": "Librarian Action Plan Validation",
+  "approval_gate": "action_plan",
+  "escalate_to_operator": false
+}

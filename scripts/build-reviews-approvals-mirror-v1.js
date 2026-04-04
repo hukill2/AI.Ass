@@ -2,22 +2,15 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const {
+  createEmptyBody,
+  normalizeRouteTarget,
+} = require('./reviews-approvals-workflow-v1');
 
 const sourcePath = path.join(__dirname, '..', 'mirror', 'reviews-approvals-source.v1.json');
 const exportPath = path.join(__dirname, '..', 'exports', 'reviews-approvals-mirror.v1.json');
 const allowedDecisions = new Set(['Approve', 'Deny', 'Modify']);
-const bodySections = [
-  'summary',
-  'full_context',
-  'proposed_action',
-  'why_this_was_triggered',
-  'risk_assessment',
-  'suggested_route',
-  'affected_components',
-  'operator_notes',
-  'revised_instructions',
-  'final_outcome',
-];
+const bodySections = Object.keys(createEmptyBody());
 
 function normalizeString(value) {
   return typeof value === 'string' ? value : '';
@@ -61,7 +54,7 @@ const items = source.items.map((rawItem) => {
     status: normalizeString(rawItem.status),
     decision,
     risk: normalizeString(rawItem.risk),
-    route_target: normalizeString(rawItem.route_target),
+    route_target: normalizeRouteTarget(rawItem.route_target),
     needs_approval: Boolean(rawItem.needs_approval),
     execution_allowed: executionAllowed,
     trigger_reason: normalizeString(rawItem.trigger_reason),
@@ -72,6 +65,27 @@ const items = source.items.map((rawItem) => {
     notion_url: normalizeString(rawItem.notion_url),
     created_at: normalizeString(rawItem.created_at),
     updated_at: normalizeString(rawItem.updated_at),
+    workflow_stage: normalizeString(rawItem.workflow_stage),
+    attempt_count:
+      Number.isFinite(Number(rawItem.attempt_count)) && Number(rawItem.attempt_count) >= 0
+        ? Number(rawItem.attempt_count)
+        : 1,
+    stage_retry_count:
+      Number.isFinite(Number(rawItem.stage_retry_count)) && Number(rawItem.stage_retry_count) >= 0
+        ? Number(rawItem.stage_retry_count)
+        : 0,
+    last_failure_stage: normalizeString(rawItem.last_failure_stage),
+    last_failure_actor: normalizeString(rawItem.last_failure_actor),
+    last_failure_code: normalizeString(rawItem.last_failure_code),
+    last_failure_summary: normalizeString(rawItem.last_failure_summary),
+    escalation_reason: normalizeString(rawItem.escalation_reason),
+    current_prompt_template: normalizeString(rawItem.current_prompt_template),
+    approval_gate:
+      rawItem.approval_gate === 'prompt' || rawItem.approval_gate === 'action_plan'
+        ? rawItem.approval_gate
+        : null,
+    artifacts:
+      rawItem.artifacts && typeof rawItem.artifacts === 'object' ? rawItem.artifacts : {},
     body: normalizeBody(rawItem.body),
   };
 });

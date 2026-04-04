@@ -1,0 +1,18 @@
+{
+  "task_id": "test-001",
+  "attempt_count": 1,
+  "workflow_stage": "Librarian Prompt Validation",
+  "failing_actor": "Librarian",
+  "failure_code": "prompt_empty",
+  "failure_summary": "Prompt package is empty.",
+  "exact_problem": "The prompt package file contains no content.",
+  "failed_checks": [
+    "Prompt package text missing."
+  ],
+  "required_changes": [
+    "Rebuild the prompt package before resubmitting."
+  ],
+  "next_owner": "operator",
+  "retryable": false,
+  "escalate_to_operator": true
+}

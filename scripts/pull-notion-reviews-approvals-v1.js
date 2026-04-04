@@ -2,6 +2,13 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const {
+  createEmptyBody,
+  getBodySectionKey,
+  getPropValue,
+  getPropCheckbox,
+  normalizeRouteTarget,
+} = require('./reviews-approvals-workflow-v1');
 
 const fetch = globalThis.fetch;
 if (!fetch) {
@@ -58,19 +65,7 @@ const HEADERS = {
   'Content-Type': 'application/json',
 };
 
-const SECTION_MAP = {
-  summary: 'summary',
-  fullcontext: 'full_context',
-  proposedaction: 'proposed_action',
-  whythiswastriggered: 'why_this_was_triggered',
-  riskassessment: 'risk_assessment',
-  suggestedroute: 'suggested_route',
-  affectedcomponents: 'affected_components',
-  operatornotes: 'operator_notes',
-  revisedinstructions: 'revised_instructions',
-  finaloutcome: 'final_outcome',
-};
-const BODY_FIELDS = Object.values(SECTION_MAP);
+const BODY_FIELDS = Object.keys(createEmptyBody());
 const REQUIRED_PROPERTY_KEYS = [
   'Task ID',
   'Title',
@@ -117,53 +112,6 @@ function findMissingPageMeta(page = {}) {
 
 function joinRichText(richTextArray = []) {
   return richTextArray.map((block) => block.plain_text).join('');
-}
-
-function textFromProperty(prop) {
-  if (!prop) return '';
-  switch (prop.type) {
-    case 'title':
-      return joinRichText(prop.title);
-    case 'rich_text':
-      return joinRichText(prop.rich_text);
-    case 'url':
-      return prop.url || '';
-    case 'number':
-      return prop.number != null ? String(prop.number) : '';
-    case 'status':
-      return prop.status ? prop.status.name : '';
-    case 'date':
-      return prop.date?.start || '';
-    case 'people':
-      return (prop.people || []).map((person) => person.name || '').join(', ');
-    default:
-      if (prop?.rich_text) {
-        return joinRichText(prop.rich_text);
-      }
-      return '';
-  }
-}
-
-function selectFromProperty(prop) {
-  if (!prop) return null;
-  if (prop.select) {
-    return prop.select.name;
-  }
-  if (prop.multi_select && prop.multi_select.length) {
-    return prop.multi_select.map((item) => item.name).join(', ');
-  }
-  if (prop.status) {
-    return prop.status.name;
-  }
-  return null;
-}
-
-function boolFromProperty(prop) {
-  if (!prop) return false;
-  if (prop.type === 'checkbox') {
-    return Boolean(prop.checkbox);
-  }
-  return Boolean(prop.checkbox ?? false);
 }
 
 function normalizeHeading(text) {
@@ -232,11 +180,7 @@ async function fetchBlocks(pageId) {
 }
 
 function initializeBody() {
-  const result = {};
-  BODY_FIELDS.forEach((field) => {
-    result[field] = '';
-  });
-  return result;
+  return createEmptyBody();
 }
 
 function appendToBody(body, section, text) {
@@ -263,9 +207,9 @@ async function run() {
     for (const block of blocks) {
       if (block.type && block.type.startsWith('heading')) {
         const headingText = blockPlainText(block);
-        const normalized = normalizeHeading(headingText);
-        if (SECTION_MAP[normalized]) {
-          currentSection = SECTION_MAP[normalized];
+        const normalized = getBodySectionKey(headingText) || getBodySectionKey(normalizeHeading(headingText));
+        if (normalized) {
+          currentSection = normalized;
         } else {
           currentSection = null;
         }
@@ -276,7 +220,7 @@ async function run() {
         appendToBody(body, currentSection, text);
       }
     }
-    const syncStatus = selectFromProperty(properties['Sync Status']);
+    const syncStatus = getPropValue(properties, 'Sync Status');
     if (syncStatus === 'Ignore') {
       skippedIgnored++;
       continue;
@@ -298,22 +242,33 @@ async function run() {
       }
     });
     const item = {
-      task_id: textFromProperty(properties['Task ID']),
-      title: textFromProperty(properties.Title || properties.Name) || '',
-      status: selectFromProperty(properties.Status),
-      decision: selectFromProperty(properties.Decision),
-      risk: selectFromProperty(properties.Risk),
-      route_target: selectFromProperty(properties['Route Target']),
-      needs_approval: boolFromProperty(properties['Needs Approval']),
-      execution_allowed: boolFromProperty(properties['Execution Allowed']),
-      trigger_reason: textFromProperty(properties['Trigger Reason']),
-      operator_notes: textFromProperty(properties['Operator Notes']),
-      revised_instructions: textFromProperty(properties['Revised Instructions']),
+      task_id: getPropValue(properties, 'Task ID'),
+      title: getPropValue(properties, 'Title') || getPropValue(properties, 'Name') || '',
+      status: getPropValue(properties, 'Status'),
+      decision: getPropValue(properties, 'Decision') || null,
+      risk: getPropValue(properties, 'Risk'),
+      route_target: normalizeRouteTarget(getPropValue(properties, 'Route Target')),
+      needs_approval: getPropCheckbox(properties, 'Needs Approval'),
+      execution_allowed: getPropCheckbox(properties, 'Execution Allowed'),
+      trigger_reason: getPropValue(properties, 'Trigger Reason'),
+      operator_notes: getPropValue(properties, 'Operator Notes'),
+      revised_instructions: getPropValue(properties, 'Revised Instructions'),
       sync_status: syncStatus,
       notion_page_id: page.id,
       notion_url: page.url,
       created_at: page.created_time,
       updated_at: page.last_edited_time,
+      workflow_stage: getPropValue(properties, 'Workflow Stage'),
+      attempt_count: Number(getPropValue(properties, 'Attempt Count') || 1),
+      stage_retry_count: Number(getPropValue(properties, 'Stage Retry Count') || 0),
+      last_failure_stage: getPropValue(properties, 'Last Failure Stage'),
+      last_failure_actor: getPropValue(properties, 'Last Failure Actor'),
+      last_failure_code: getPropValue(properties, 'Last Failure Code'),
+      last_failure_summary: getPropValue(properties, 'Last Failure Summary'),
+      escalation_reason: getPropValue(properties, 'Escalation Reason'),
+      current_prompt_template: getPropValue(properties, 'Current Prompt Template'),
+      approval_gate: getPropValue(properties, 'Approval Gate') || null,
+      artifacts: {},
       body,
     };
     items.push(item);

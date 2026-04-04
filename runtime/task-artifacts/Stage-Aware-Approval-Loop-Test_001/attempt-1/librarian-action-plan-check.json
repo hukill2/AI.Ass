@@ -1,0 +1,13 @@
+{
+  "verdict": "pass",
+  "failure_code": "action_plan_valid",
+  "failure_summary": "Action plan passed Librarian validation.",
+  "exact_problem": "The action plan includes execution and verification steps within guardrails.",
+  "failed_checks": [],
+  "required_changes": [],
+  "retryable": false,
+  "operator_message": "Why it failed: Action plan passed Librarian validation.\nWhat is wrong now: The action plan includes execution and verification steps within guardrails.\nWhat Qwen/Librarian already tried: Initial validation only.\nWhat decision or edit is needed from you: No operator change required.",
+  "workflow_stage": "Librarian Action Plan Validation",
+  "approval_gate": "action_plan",
+  "escalate_to_operator": false
+}

@@ -21,6 +21,7 @@ This document now functions as the milestone-level navigator for the validated v
 - [`docs/post-write-verification-plan-v1.md`](docs/post-write-verification-plan-v1.md) – verification expectations and logging.
 - [`docs/operator-workflow-wrapper-spec-v1.md`](docs/operator-workflow-wrapper-spec-v1.md) – wrapper invocation, stages, guardrail telemetry.
 - [`docs/operator-runbook-and-usage-layer-v1.md`](docs/operator-runbook-and-usage-layer-v1.md) – operator-facing flow, stage outputs, and executor readiness overview.
+- [`docs/stage-aware-approval-loop-contract-v1.md`](docs/stage-aware-approval-loop-contract-v1.md) – stage-aware Notion approval, retries, escalation, and artifact contract.
 
 ## Historical or archival references
 - [`docs/operator-workflow-runbook-v1.md`](docs/operator-workflow-runbook-v1.md) – kept for history only; the wrapper runbook moved to a separate canonical doc.

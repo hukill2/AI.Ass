@@ -4,157 +4,131 @@ const fs = require("fs");
 const path = require("path");
 const OpenAI = require("openai");
 const dotenvx = require("@dotenvx/dotenvx");
+const {
+  sanitizeText,
+  writeArtifact,
+} = require("./reviews-approvals-workflow-v1");
 
 dotenvx.config({ quiet: true });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const ROOT = path.resolve(__dirname, "..");
-const QUEUE_DIR = path.join(ROOT, "runtime", "queue");
-const HANDOFF_PATH = path.join(ROOT, "OS-V1-HANDOFF.md");
-const LOG_DIR = path.join(ROOT, "runtime", "logs");
 const DEFAULT_CODEX_MODEL = process.env.CODEX_MODEL_ID || "gpt-5";
-const DEFAULT_ECONOMY_MODEL = process.env.ECONOMY_MODEL_ID || "gpt-5-mini";
+const ROOT = path.resolve(__dirname, "..");
+const LOG_DIR = path.join(ROOT, "runtime", "logs");
+
+async function generateArchitectPlan(task, promptPackageText) {
+  const openaiKey = sanitizeText(process.env.OPENAI_API_KEY).trim();
+  if (!openaiKey) {
+    const fallback = buildFallbackPlan(task, promptPackageText);
+    writeArtifact(task, "gpt-plan.md", `${fallback}\n`);
+    return {
+      plan_text: fallback,
+      self_reported_risks: [
+        "OPENAI_API_KEY missing; used deterministic fallback plan.",
+      ],
+      used_fallback: true,
+    };
+  }
+
+  const openai = new OpenAI({ apiKey: openaiKey });
+  const response = await openai.chat.completions.create({
+    model: DEFAULT_CODEX_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: [
+          "You are the Architect/GPT planner for AI Assistant OS.",
+          "Return planning guidance only.",
+          "Do not execute code.",
+          "Do not write files.",
+          "Be direct and concise.",
+          "Return JSON with plan_text and self_reported_risks.",
+        ].join(" "),
+      },
+      {
+        role: "user",
+        content: [
+          `Task ID: ${sanitizeText(task.task_id)}`,
+          `Task Title: ${sanitizeText(task.title)}`,
+          "",
+          "Prompt Package:",
+          sanitizeText(promptPackageText),
+        ].join("\n"),
+      },
+    ],
+    response_format: { type: "json_object" },
+  });
+
+  const raw = response.choices[0].message.content || "{}";
+  const parsed = JSON.parse(raw);
+  const planText = sanitizeText(parsed.plan_text || "").trim();
+  const risks = Array.isArray(parsed.self_reported_risks)
+    ? parsed.self_reported_risks.map((entry) => sanitizeText(entry).trim()).filter(Boolean)
+    : [];
+
+  if (!planText) {
+    throw new Error("Architect/GPT returned an empty plan_text.");
+  }
+
+  writeArtifact(task, "gpt-plan.md", `${planText}\n`);
+  appendUsageLog(response.usage || {}, task.task_id);
+
+  return {
+    plan_text: planText,
+    self_reported_risks: risks,
+    used_fallback: false,
+  };
+}
+
+function buildFallbackPlan(task, promptPackageText) {
+  return [
+    `Task: ${sanitizeText(task.title || task.task_id)}`,
+    "",
+    "Fallback planning mode engaged because OpenAI credentials are unavailable.",
+    "",
+    "Recommended planning output:",
+    "1. Re-read the approved task summary, constraints, and affected components.",
+    "2. Produce the smallest change set that satisfies the task without broadening scope.",
+    "3. Preserve the existing Notion -> mirror -> review -> execution pipeline.",
+    "4. Include a narrow verification step before claiming completion.",
+    "",
+    "Prompt package reference:",
+    sanitizeText(promptPackageText || ""),
+  ].join("\n");
+}
+
+function appendUsageLog(usage, taskId) {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+  const ledgerPath = path.join(LOG_DIR, "api-usage.ndjson");
+  const entry = {
+    timestamp: new Date().toISOString(),
+    taskId: sanitizeText(taskId),
+    model: DEFAULT_CODEX_MODEL,
+    prompt_tokens: usage.prompt_tokens || 0,
+    completion_tokens: usage.completion_tokens || 0,
+    total_tokens: usage.total_tokens || 0,
+  };
+  fs.appendFileSync(ledgerPath, `${JSON.stringify(entry)}\n`, "utf8");
+}
 
 async function main() {
-  const taskId = process.argv[2];
-  if (!taskId) {
-    console.error("Usage: node scripts/executor-codex-v1.js <taskId>");
+  const taskPath = process.argv[2];
+  const promptPath = process.argv[3];
+  if (!taskPath || !promptPath) {
+    console.error("Usage: node scripts/executor-codex-v1.js <task-json-path> <prompt-package-path>");
     process.exit(1);
   }
 
-  const jsonPath = path.join(QUEUE_DIR, `task-${taskId}.json`);
-  const planPath = path.join(QUEUE_DIR, `task-${taskId}.plan.md`);
+  const task = JSON.parse(fs.readFileSync(path.resolve(taskPath), "utf8"));
+  const promptPackageText = fs.readFileSync(path.resolve(promptPath), "utf8");
+  const result = await generateArchitectPlan(task, promptPackageText);
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}
 
-  try {
-    const taskData = JSON.parse(sanitizeText(fs.readFileSync(jsonPath, "utf8")));
-    const planText = sanitizeText(fs.readFileSync(planPath, "utf8"));
-    const handoffText = fs.existsSync(HANDOFF_PATH)
-      ? sanitizeText(fs.readFileSync(HANDOFF_PATH, "utf8"))
-      : "";
-
-    console.log(`Sending Task ${taskId} to OpenAI Codex (${DEFAULT_CODEX_MODEL})...`);
-
-    const response = await openai.chat.completions.create({
-      model: DEFAULT_CODEX_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: `You are the Codex Architect for AI Assistant OS v1.1.
-Execute the plan against the task record, return ONLY the updated task JSON, and keep unchanged metadata untouched. Reference this handoff: ${handoffText}`
-        },
-        {
-          role: "user",
-          content: `Task JSON: ${JSON.stringify(taskData)}\n\nExecution Plan: ${planText}`
-        }
-      ],
-      response_format: { type: "json_object" }
-    });
-
-    const updatedTask = JSON.parse(response.choices[0].message.content);
-
-    const usage = response.usage || {};
-    const cost = calculateCost(usage, DEFAULT_CODEX_MODEL);
-    fs.mkdirSync(LOG_DIR, { recursive: true });
-    const ledgerPath = path.join(LOG_DIR, "api-usage.ndjson");
-
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      taskId,
-      model: DEFAULT_CODEX_MODEL,
-      prompt_tokens: usage.prompt_tokens || 0,
-      completion_tokens: usage.completion_tokens || 0,
-      total_tokens: usage.total_tokens || 0,
-      cost_usd: cost
-    };
-    fs.appendFileSync(ledgerPath, `${JSON.stringify(logEntry)}\n`, "utf8");
-
-    checkBudgetLimits(cost, ledgerPath);
-    const finalTask = {
-      ...taskData,
-      ...updatedTask,
-      task_id: taskData.task_id,
-      notion_page_id: taskData.notion_page_id,
-      notion_url: taskData.notion_url,
-      created_at: taskData.created_at,
-      updated_at: new Date().toISOString()
-    };
-
-    fs.writeFileSync(jsonPath, `${JSON.stringify(finalTask, null, 2)}\n`, "utf8");
-    console.log(`Codex successfully updated task ${taskId}.`);
-  } catch (error) {
-    console.error(`Codex Execution Error for ${taskId}:`, error.message);
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`Architect/GPT planning failed: ${sanitizeText(error.message)}`);
     process.exit(1);
-  }
+  });
 }
 
-function sanitizeText(val) {
-  return String(val ?? "")
-    .replace(/\uFEFF/g, "")
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, (c) =>
-      [ "\n", "\r", "\t" ].includes(c) ? c : " "
-    );
-}
-
-
-function calculateCost(usage, model) {
-  const rates = {
-    "gpt-5": { input: 2.5, output: 20.0 },
-    "gpt-5-mini": { input: 0.75, output: 4.5 }
-  };
-  const rate = rates[model] || rates["gpt-5"];
-  const promptTokens = usage.prompt_tokens || 0;
-  const completionTokens = usage.completion_tokens || 0;
-  return Number(
-    (
-      (promptTokens / 1_000_000) * rate.input +
-      (completionTokens / 1_000_000) * rate.output
-    ).toFixed(6),
-  );
-}
-
-function checkBudgetLimits(currentCost, ledgerPath) {
-  const SESSION_LIMIT = 5.0;
-  const threshold = SESSION_LIMIT * 0.5;
-  let total = currentCost;
-  if (fs.existsSync(ledgerPath)) {
-    const lines = fs.readFileSync(ledgerPath, "utf8").trim().split("\n");
-    const now = Date.now();
-    const windowMs = 5 * 60 * 60 * 1000;
-    for (const line of lines) {
-      try {
-        const entry = JSON.parse(line);
-        const entryTime = new Date(entry.timestamp).getTime();
-        if (now - entryTime <= windowMs) {
-          total += entry.cost_usd || 0;
-        }
-      } catch {
-        continue;
-      }
-    }
-  }
-
-  if (total >= SESSION_LIMIT) {
-    throw new Error(`Codex session cost ${total.toFixed(3)} exceeds $${SESSION_LIMIT}`);
-  }
-
-  if (total >= threshold) {
-    updateEnvModel(DEFAULT_ECONOMY_MODEL);
-    console.warn(
-      `Usage ${total.toFixed(3)} >= ${threshold}; switching to ${process.env.CODEX_MODEL_ID}`,
-    );
-  }
-}
-
-function updateEnvModel(newModel) {
-  const envPath = path.join(ROOT, ".env");
-  if (!fs.existsSync(envPath)) return;
-  const content = fs.readFileSync(envPath, "utf8");
-  const updatedContent = content.replace(/^(CODEX_MODEL_ID=)(.*)$/m, `$1${newModel}`);
-  if (content !== updatedContent) {
-    fs.writeFileSync(envPath, updatedContent, "utf8");
-    process.env.CODEX_MODEL_ID = newModel;
-    console.log(`\n[GUARDRAIL] .env UPDATED: CODEX_MODEL_ID is now ${newModel}`);
-  }
-}
-
-main();
+module.exports = { generateArchitectPlan };

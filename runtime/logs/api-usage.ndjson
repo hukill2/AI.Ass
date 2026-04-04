@@ -1,3 +1,4 @@
 {"timestamp":"2026-04-04T06:55:07.996Z","taskId":"template-001","model":"gpt-5","prompt_tokens":2046,"completion_tokens":3339,"total_tokens":5385,"cost_usd":0.071895}
 {"timestamp":"2026-04-04T06:59:20.924Z","taskId":"template-001","model":"gpt-5","prompt_tokens":2046,"completion_tokens":2995,"total_tokens":5041,"cost_usd":0.065015}
 {"timestamp":"2026-04-04T07:39:27.424Z","taskId":"test-002","model":"gpt-5","prompt_tokens":2062,"completion_tokens":2659,"total_tokens":4721,"cost_usd":0.058335}
+{"timestamp":"2026-04-04T20:57:27.586Z","taskId":"Stage-Aware-Approval-Loop-Test_001","model":"gpt-5","prompt_tokens":739,"completion_tokens":2871,"total_tokens":3610}
