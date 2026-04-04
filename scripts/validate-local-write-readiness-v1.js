@@ -90,21 +90,26 @@ if (!readonlySuccess.length) {
 const readonlyLog = readonlySuccess[readonlySuccess.length - 1];
 const { handoff_id: handoffId, preview_id: previewId } = readonlyLog;
 
-const writeSuccess = logs.logs
+const dryrunLogs = load(path.resolve(__dirname, '../runtime/write-execution-dryrun-logs.v1.json'));
+if (!dryrunLogs || !Array.isArray(dryrunLogs.logs)) {
+  console.error('Missing write dry-run logs.');
+  process.exit(1);
+}
+const dryrunSuccess = dryrunLogs.logs
   .filter(
     (log) =>
       log.execution_id === executionId &&
-      log.executor === 'qwen-write' &&
-      log.execution_result === 'success'
+      log.executor === 'qwen-write-dryrun' &&
+      log.execution_result === 'no_change'
   )
   .sort((a, b) => maxLogTimestamp(a, b));
 
-if (!writeSuccess.length) {
-  console.error(`No successful qwen-write log found for ${executionId}.`);
+if (!dryrunSuccess.length) {
+  console.error(`No successful qwen-write-dryrun log found for ${executionId}.`);
   process.exit(1);
 }
 
-const latestWrite = writeSuccess[writeSuccess.length - 1];
+const latestDryrun = dryrunSuccess[dryrunSuccess.length - 1];
 
 const handoff = load(path.resolve(__dirname, '../runtime/codex-handoff-packets.v1.json'));
 if (!handoff) {
@@ -129,8 +134,8 @@ if (!previewEntry) {
 }
 
 console.log(
-  `Execution ${executionId} is ready for a write execution. ` +
+  `Execution ${executionId} is ready for real write execution. ` +
     `Candidate status=${candidate.execution_status}, payload_id=${payload.payload_id}, ` +
     `readonly_log=${readonlyLog.execution_log_id}, ` +
-    `write_log=${latestWrite.execution_log_id}, handoff_id=${handoffId}, preview_id=${previewId}.`
+    `write_dryrun_log=${latestDryrun.write_dryrun_log_id}, handoff_id=${handoffId}, preview_id=${previewId}.`
 );

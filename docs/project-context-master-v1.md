@@ -6,6 +6,36 @@ Update this file whenever any of the source documents below change so the shared
 
 Use the active canonical docs for operator workflow material. Do not add historical duplicates here.
 
+## V1 Closeout Assessment (2026-04-03)
+
+This aggregate is the milestone-level overview for v1 closeout. Use the source docs listed below for detailed contracts. Do not treat older embedded snapshots or historical milestone notes as more authoritative than the active source docs.
+
+### Completed / stable v1 lanes
+- Assistant decision persistence in `runtime/assistant-decisions.v1.json`
+- Decision review classification and operator gating in `runtime/decision-reviews.v1.json`
+- Approved review promotion into execution candidates in `runtime/execution-candidates.v1.json`
+- Executor payload preparation, Codex handoff packet preparation, and invocation preview preparation
+- Real local readonly execution via `scripts/execute-codex-readonly-v1.js` with executor label `qwen-readonly`
+- Local write dry run via `scripts/execute-local-write-dryrun-v1.js`
+- Real local write execution via `scripts/execute-local-write-v1.js`
+- Immediate post-write verification capture on successful qwen-write logs plus `scripts/list-write-verified-executions-v1.js`
+
+### Remaining required-for-v1 gaps
+- Keep readonly duplicate-run protection aligned to the real executor label (`qwen-readonly`) so the guard matches the log ledger.
+- Keep the local write readiness contract aligned to the actual lane order: readonly success plus write-dryrun success must be present before the repo is treated as ready for a real write.
+- Keep the canonical operator/docs layer aligned to the implemented CLI flags and executor labels so the next subsystem does not inherit stale invocation examples.
+
+### Optional cleanup / deferred work
+- Renaming legacy `codex-*` artifact stores or helper names that now back local qwen execution
+- Rewriting the large aggregate below into a smaller navigation-only file instead of embedded source snapshots
+- Expanding post-write verification beyond the current bounded JavaScript syntax checks
+- Any external Codex executor, Notion write-back, Telegram, daemon/runtime growth, embeddings, or semantic retrieval work
+
+### Canonical vs historical
+- Canonical for the validated v1 chain: `docs/assistant-decision-contract-v1.md`, `docs/decision-review-gate-contract-v1.md`, `docs/decision-review-status-rules-v1.md`, `docs/execution-gate-contract-v1.md`, `docs/execution-handoff-contract-v1.md`, `docs/codex-handoff-dry-run-contract-v1.md`, `docs/codex-invocation-preview-contract-v1.md`, `docs/codex-real-executor-readonly-plan-v1.md`, `docs/local-write-executor-dryrun-plan-v1.md`, `docs/local-write-executor-contract-v1.md`, `docs/post-write-verification-plan-v1.md`, `docs/operator-workflow-wrapper-spec-v1.md`, and `docs/operator-runbook-and-usage-layer-v1.md`.
+- Historical or milestone-note only: `docs/operator-workflow-runbook-v1.md`, `docs/first-real-write-run-checklist-v1.md`, and `docs/first-real-write-success-v1.md`.
+- Future/deferred rather than v1-closeout blocking: `docs/codex-execution-contract-v1.md`.
+
 ---
 
 ## Source: docs/architecture-pages-id-setup-v1.md
@@ -384,7 +414,7 @@ Read-only real execution may only occur when:
 
 ## Expected Outputs
 - a real execution log entry
-- executor = "codex-readonly"
+- executor = "qwen-readonly"
 - execution_result
 - files_changed = []
 - notes capturing what Codex reported in readonly mode

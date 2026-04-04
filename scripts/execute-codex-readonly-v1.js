@@ -53,9 +53,9 @@ if (candidate.execution_status !== 'execution_prepared') {
   console.error('Execution candidate is not in execution_prepared state.');
   process.exit(1);
 }
-const existingLog = logsDoc.logs.find((log) => log.execution_id === executionId && log.executor === 'codex-readonly');
+const existingLog = logsDoc.logs.find((log) => log.execution_id === executionId && log.executor === 'qwen-readonly');
 if (existingLog) {
-  console.error('A codex-readonly execution log already exists for this execution_id.');
+  console.error('A qwen-readonly execution log already exists for this execution_id.');
   process.exit(1);
 }
 
@@ -63,11 +63,14 @@ const cmd = 'ollama';
 const modelName = 'qwen2.5-coder:7b';
 const fullPrompt = preview.prompt_text;
 const argsCmd = ['run', modelName];
-const spawnResult = spawnSync(cmd, argsCmd, { encoding: 'utf8', timeout: 120000, input: fullPrompt });
+const spawnResult = invokeOllama(fullPrompt);
 let executionResult = 'success';
 let notes = '';
-const stdoutPreview = (spawnResult.stdout || '').trim().replace(/\s+/g, ' ').slice(0, 200);
+const stdoutPreview = sanitizeAnsi((spawnResult.stdout || '').trim()).replace(/\s+/g, ' ').slice(0, 200);
 const commandDetail = `${cmd} ${argsCmd.join(' ')}`;
+const stderrRaw = (spawnResult.stderr || '').trim();
+const sanitizedStderr = sanitizeAnsi(stderrRaw);
+const is500 = spawnResult._ollama500 || sanitizedStderr.includes('500 Internal Server Error');
 if (spawnResult.error) {
   executionResult = 'failed';
   const errMsg = spawnResult.error.message;
@@ -76,12 +79,38 @@ if (spawnResult.error) {
   executionResult = 'failed';
   const status = spawnResult.status;
   const signal = spawnResult.signal ? ` signal=${spawnResult.signal}` : '';
-  const stderr = (spawnResult.stderr || '').trim();
-  notes = `Qwen exited ${status}${signal}; stderr=${stderr || '<none>'}`;
+  notes = `Qwen exited ${status}${signal}; stderr=${sanitizedStderr || '<none>'}`;
 } else {
   notes = stdoutPreview ? `Readonly output: ${stdoutPreview}` : 'Qwen returned empty readonly response.';
 }
+if (is500) {
+  notes += ' (500 Internal Server Error from Ollama; see docs/codex-real-executor-readonly-plan-v1.md)';
+}
 notes += `; model=${modelName}; cmd=${commandDetail}`;
+
+function sanitizeAnsi(text) {
+  return text.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+}
+
+function invokeOllama(payload) {
+  const opts = { encoding: 'utf8', timeout: 120000, input: payload };
+  let attempt = 0;
+  while (true) {
+    attempt += 1;
+    const result = spawnSync(cmd, argsCmd, opts);
+    const stderr = result.stderr ? result.stderr.toString() : '';
+    if (
+      attempt < 2 &&
+      (result.status !== 0 || result.error) &&
+      stderr.includes('500 Internal Server Error')
+    ) {
+      console.warn('Ollama returned 500; retrying once after a brief wait...');
+      continue;
+    }
+    result._ollama500 = stderr.includes('500 Internal Server Error');
+    return result;
+  }
+}
 
 const logEntry = {
   execution_log_id: `log-${Date.now()}`,

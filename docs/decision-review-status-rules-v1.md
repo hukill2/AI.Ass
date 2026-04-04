@@ -1,1 +1,28 @@
-# Decision Review Status Rules v1\n\n## Purpose\nDefines how review records transition through operator statuses in untime/decision-reviews.v1.json.\n\n## Allowed Statuses\n- pending\n- reviewed\n- approved\n- rejected\n\n## Allowed Transitions\n- pending -> reviewed\n- reviewed -> approved\n- reviewed -> rejected\n\n## Rules\n- Only the operator may change a review status.\n- Approved does not execute anything yet in v1.\n- Rejected means the proposal is not accepted in its current form.\n- Approval must be explicit for approval-required items.\n- Reviewed means the operator has seen the item but has not yet approved it.\n\n## Guardrails\n- Storing a decision is not approval.\n- Classification is not approval.\n- Reviewed is not approval.\n- Execution remains blocked in v1 even after approval until a later execution layer is added.\n
+# Decision Review Status Rules v1
+
+## Purpose
+Defines how review records transition through operator statuses in `runtime/decision-reviews.v1.json`.
+
+## Allowed statuses
+- `pending`
+- `reviewed`
+- `approved`
+- `rejected`
+
+## Allowed transitions
+- `pending -> reviewed`
+- `reviewed -> approved`
+- `reviewed -> rejected`
+
+## Rules
+- Only the operator may change a review status.
+- `approved` does not execute anything by itself in v1.
+- `rejected` means the proposal is not accepted in its current form.
+- Approval must be explicit for `approval-required` items.
+- `reviewed` means the operator has seen the item but has not yet approved it.
+
+## Guardrails
+- Storing a decision is not approval.
+- Classification is not approval.
+- `reviewed` is not approval.
+- Execution remains blocked in v1 after approval until the downstream execution layers are invoked explicitly.

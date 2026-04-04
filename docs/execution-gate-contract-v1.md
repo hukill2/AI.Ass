@@ -1,29 +1,22 @@
 # Execution Gate Contract v1
 
-## Status note
-This document is now historical for the promotion gate only. The repo has since added readonly and write executor layers; use `docs/local-readonly-executor-status-v1.md`, `docs/local-write-executor-contract-v1.md`, and `docs/codex-execution-contract-v1.md` for the current execution reality.
-This file remains as archive-level context for how promotion-only reviews were elevated into execution candidates; today, execution candidates and their guardrails are governed by the linked executor-layer docs rather than by the descriptions below, so read this section only to understand the original gate.
-
 ## Purpose
-Defines how approved decision reviews are elevated to execution candidates within the local workflow.
+Documents how operator-reviewed decisions are elevated into execution candidates so downstream executor layers can consume a deterministic, reviewable handoff.
 
 ## Scope
-- Applies to review records in runtime/decision-reviews.v1.json.
-- Applies to matching assistant decisions in runtime/assistant-decisions.v1.json.
-- Does not execute code.
-- Does not call Codex yet.
-- Does not call Claude.
-- Does not send Telegram.
-- Does not write back to Notion.
+- Covers the promotion logic implemented in `scripts/promote-approved-review-to-execution-candidate-v1.js`.
+- Depends on `runtime/decision-reviews.v1.json` (version `v1`), `runtime/assistant-decisions.v1.json` (version `v1`), and `runtime/execution-candidates.v1.json` (version `v1`).
+- Does not execute code, call Codex/Claude, send Telegram, or write to Notion; it only records the candidate data that later executor layers consume.
 
-## Execution Candidate Definition
-An item is eligible to become an execution candidate only when:
-- classification =  approval-required.
-- operator_status = approved.
-- The associated assistant decision exists.
-- The assistant decision is structurally valid.
+## Promotion heuristics
+1. Only reviews with `operator_status = approved` and a classification of either `approval-required` or `review-required` are considered.
+2. Reviews that already have an execution candidate are skipped so each review promotes at most once.
+3. The associated assistant decision must exist; if it is missing or incomplete, the resulting candidate is marked `execution_blocked` so operators know to return to the review.
+4. Once promoted, the candidate gets assigned a unique `execution_id` (`exec-<epoch>-<seq>`) and both `created_at` and `updated_at` timestamps.
 
-## Required Execution Candidate Fields
+## Required execution candidate schema
+The stored candidate contains the following fields; downstream automation reads these verbatim.
+
 ```json
 {
   "execution_id": "",
@@ -41,23 +34,15 @@ An item is eligible to become an execution candidate only when:
 }
 ```
 
-## Initial Execution Statuses
-- awaiting_execution
-- execution_blocked
-- execution_prepared
-- executed
+- `execution_status` is `awaiting_execution` when the associated decision meets the completeness check (`recommended_next_step`, `reasoning`, and arrays for `files_to_create_or_update` and `risks_or_guardrails`) and `execution_blocked` otherwise.
+- `operator_notes` is copied directly from the review so the candidate preserves the operator rationale.
 
-For the original promotion-only gate, only `awaiting_execution` and `execution_blocked` were expected to be used.
+## Execution status guardrails
+- Approved reviews may become candidates, but promotion itself is not execution.
+- Promotion does not change operator status; operators retain ultimate authority and may revise reviews even after promotion.
+- Candidates marked `execution_blocked` signal that the decision packet needs correction before any executor layer should run.
+- Once a candidate exists, later layers can change `execution_status` (for example to `execution_prepared`) as they move through readiness checks, but this contract only governs the initial promotion step.
 
-## Initial Rules
-- Approved review items may be promoted to execution candidates.
-- Promotion is not execution.
-- This document does not describe the later executor layers that were added after the promotion gate.
-- Malformed or incomplete approved items should become execution_blocked.
-- Carry operator notes forward into the execution candidate.
-
-## Guardrails
-- No automatic execution in v1.
-- No direct Codex handoff in v1.
-- No external side effects in v1.
-- Execution candidates exist only to make the future execution layer explicit and reviewable.
+## Observability
+- The script prints which reviews it promoted and the total count of execution candidates so operators can confirm a successful run.
+- Invalid or missing source stores halt the promotion with a clear error message, preventing partial or duplicate candidates.

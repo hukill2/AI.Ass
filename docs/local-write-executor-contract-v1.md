@@ -63,10 +63,14 @@ Real write-enabled execution must produce:
 - When the target file already exists, the same check runs before overwriting so the new text explicitly matches what was requested even if the file previously came from the assistant.
 
 ## Readiness helper
-- Run `node scripts/validate-local-write-readiness-v1.js --execution-id=<id>` before attempting a write dry run or real write. It confirms:
+- Run `node scripts/validate-local-write-readiness-v1.js --execution-id=<id>` after the readonly run and write dry run, but before treating the candidate as ready for a real write. It confirms:
   * the execution candidate exists and remains `execution_prepared` or `awaiting_execution`
   * the executor payload record exists and provides `payload_id` for traceability
   * a successful qwen-readonly log already exists for this execution
-  * a successful qwen-write log already exists for this execution
+  * a successful qwen-write-dryrun log already exists for this execution
   * the Codex handoff packet and invocation preview referenced in the latest successful qwen-readonly log are present so the write lane has the required payload data
-- On failure the script exits nonzero with a clear message (missing candidate, logs, or artifacts), so you can rebuild the missing pieces and re-run it until it passes.
+- On failure the script exits nonzero with a clear message (missing candidate, logs, or artifacts), so you can rebuild the missing pieces and rerun it until it passes.
+
+## Live validation milestone
+- Candidate `exec-1775064296687-1` successfully executed the real qwen2.5-coder path (no `USE_MOCK_LOCAL_WRITE` flag) by running `node scripts/execute-local-write-v1.js --execution-id exec-1775064296687-1`. The generated output still includes the required keywords because the executor prepends the targeted comment line, satisfying the quality/fidelity gate even when the model echoes the keywords line at the top.
+- The resulting execution log `write-1775260196996` records `execution_result: success`, the generated `files_changed`, and a passing syntax verification run, proving the unmocked executor path can deliver the tightly bounded write needed for v1.
