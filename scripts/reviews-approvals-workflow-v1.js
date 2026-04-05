@@ -564,13 +564,14 @@ function writeNotionSyncState(state) {
   });
 }
 
-function updateNotionSyncState(pageId, lastEditedTime) {
+function updateNotionSyncState(pageId, lastEditedTime, fingerprint = "") {
   if (!pageId || !lastEditedTime) {
     return;
   }
   const state = readNotionSyncState();
   state.pages[pageId] = {
     last_edited_time: sanitizeText(lastEditedTime),
+    fingerprint: sanitizeText(fingerprint),
     updated_at: new Date().toISOString(),
   };
   writeNotionSyncState(state);

@@ -49,6 +49,7 @@ const EXECUTION_RETRY_LIMITS = Object.freeze({
   execution_invalid_json: 3,
   execution_missing_outcome: 3,
   verification_missing_artifacts: 2,
+  verification_missing_expected_files: 2,
   verification_missing_outcome: 2,
   default: 1,
 });
@@ -166,6 +167,26 @@ async function advanceTask(task, taskPath) {
   }
 
   if (task.status === STATUS.PENDING_REVIEW) {
+    const decision = sanitizeText(task.decision).trim().toLowerCase();
+    if (decision === "approve") {
+      task.status = STATUS.APPROVED;
+      task.sync_status = "Synced";
+      return { changed: true, stop: false };
+    }
+    if (decision === "deny") {
+      task.status = STATUS.DENIED;
+      task.sync_status = "Not Synced";
+      return { changed: true, stop: true, notifyOperator: true, notifyReason: "Task denied." };
+    }
+    if (decision === "modify") {
+      task.status = STATUS.NEEDS_EDIT;
+      task.sync_status = "Synced";
+      appendAttemptHistory(task, "Operator requested modifications during review.");
+      return { changed: true, stop: false };
+    }
+  }
+
+  if (task.status === STATUS.PENDING_REVIEW) {
     return { changed: false, stop: true };
   }
 
@@ -214,7 +235,9 @@ async function advanceTask(task, taskPath) {
 }
 
 function handleOperatorEscalation(task) {
-  if (task.status === STATUS.APPROVED) {
+  const decision = sanitizeText(task.decision).trim().toLowerCase();
+
+  if (task.status === STATUS.APPROVED || decision === "approve") {
     const resume = getEscalationResumeState(task);
     clearFailureState(task);
     task.sync_status = "Synced";
@@ -224,15 +247,28 @@ function handleOperatorEscalation(task) {
     return { changed: true, stop: false };
   }
 
-  if (task.status === STATUS.NEEDS_EDIT) {
+  if (task.status === STATUS.NEEDS_EDIT || decision === "modify") {
     clearFailureState(task);
     task.sync_status = "Synced";
+    task.status = STATUS.RETRYING;
     task.workflow_stage =
       task.approval_gate === APPROVAL_GATE.ACTION_PLAN
         ? STAGE.QWEN_ACTION_PLAN_DRAFT
         : STAGE.PROMPT_PACKAGE_ASSEMBLY;
     appendAttemptHistory(task, "Operator requested edits after escalation.");
     return { changed: true, stop: false };
+  }
+
+  if (decision === "deny") {
+    task.status = STATUS.DENIED;
+    task.sync_status = "Not Synced";
+    appendAttemptHistory(task, "Operator denied the task after escalation.");
+    return {
+      changed: true,
+      stop: true,
+      notifyOperator: true,
+      notifyReason: "Task denied after escalation.",
+    };
   }
 
   if ([STATUS.ESCALATED, STATUS.FAILED].includes(task.status)) {
@@ -548,6 +584,19 @@ async function executeApprovedActionPlan(task) {
   if (runResult.stderr) {
     writeArtifact(task, "qwen-execution-stderr.txt", `${runResult.stderr}\n`);
   }
+  writeArtifact(
+    task,
+    "qwen-execution-model.json",
+    `${JSON.stringify(
+      {
+        selected_model: runResult.model || "",
+        fallback_used: Boolean(runResult.fallbackUsed),
+        attempts: runResult.attempts || [],
+      },
+      null,
+      2,
+    )}\n`,
+  );
 
   if (!runResult.ok) {
     const retryMeta = getExecutionRetryMeta(task, "execution_runtime_error");
@@ -555,7 +604,10 @@ async function executeApprovedActionPlan(task) {
       failureCode: "execution_runtime_error",
       failureSummary: "Qwen execution failed before producing a usable result.",
       exactProblem: runResult.stderr || runResult.error || "Unknown execution failure.",
-      failedChecks: [`ollama status=${runResult.status}`],
+      failedChecks: [
+        `ollama status=${runResult.status}`,
+        runResult.model ? `model=${runResult.model}` : "",
+      ].filter(Boolean),
       requiredChanges: ["Review local runtime availability and retry the execution stage."],
       retryable: retryMeta.retryable,
       retryLimit: retryMeta.retryLimit,
@@ -652,6 +704,7 @@ function verifyExecution(task) {
   const artifactDir = getTaskArtifactDir(task);
   const exists = fs.existsSync(artifactDir);
   const outcome = sanitizeText(task.body.final_outcome).trim();
+  const expectedFiles = extractExpectedFiles(task);
   if (!exists) {
     return {
       ok: false,
@@ -674,9 +727,33 @@ function verifyExecution(task) {
       operatorMessage: "Why it failed: final outcome summary is missing.\nWhat is wrong now: the task page has no final outcome.\nWhat Qwen/Librarian already tried: execution completed but did not persist the result cleanly.\nWhat decision or edit is needed from you: request a rerun or update the task outcome manually.",
     };
   }
+  if (expectedFiles.length > 0) {
+    const missingFiles = expectedFiles.filter((filePath) => !fs.existsSync(filePath));
+    if (missingFiles.length > 0) {
+      return {
+        ok: false,
+        failureCode: "verification_missing_expected_files",
+        failureSummary: "Expected execution files are missing.",
+        exactProblem: `Missing expected files: ${missingFiles.join(", ")}`,
+        failedChecks: missingFiles.map((filePath) => `exists(${filePath}) = false`),
+        requiredChanges: [
+          "Re-run execution and ensure the approved file footprint is actually written to disk.",
+        ],
+        operatorMessage: [
+          "Why it failed: expected execution files are missing.",
+          `What is wrong now: ${missingFiles.join(", ")}`,
+          "What Qwen/Librarian already tried: execution produced artifacts and an outcome summary, but the expected files were not found on disk.",
+          "What decision or edit is needed from you: request a rerun or update the task so verification matches the real deliverables.",
+        ].join("\n"),
+      };
+    }
+  }
   return {
     ok: true,
-    command: `artifact-check ${artifactDir}`,
+    command:
+      expectedFiles.length > 0
+        ? `fs-check ${expectedFiles.join(", ")}`
+        : `artifact-check ${artifactDir}`,
   };
 }
 
@@ -736,102 +813,93 @@ function handleExecutionFailure(task, failure) {
 
 function runExecutionScopeSelfCheck(task, actionPlanText) {
   const approvedRoots = extractApprovedWriteRoots(task);
-  const scopePrompt = buildScopeSelfCheckPrompt(task, actionPlanText, approvedRoots);
-  const checkResult = invokeOllama(scopePrompt);
-  writeArtifact(task, "qwen-scope-self-check-raw.txt", `${checkResult.stdout || ""}\n`);
-  if (checkResult.stderr) {
-    writeArtifact(task, "qwen-scope-self-check-stderr.txt", `${checkResult.stderr}\n`);
-  }
+  const expectedFiles = extractExpectedFiles(task);
+  const gitAuthorized = isGitAuthorizedForTask(task, actionPlanText);
 
-  if (!checkResult.ok) {
+  writeArtifact(
+    task,
+    "qwen-scope-self-check-raw.txt",
+    [
+      "Deterministic local scope preflight executed.",
+      `Approved write roots: ${approvedRoots.join(", ") || "none"}`,
+      `Expected files: ${expectedFiles.join(", ") || "none"}`,
+      `Git authorized: ${gitAuthorized ? "true" : "false"}`,
+    ].join("\n"),
+  );
+  writeArtifact(
+    task,
+    "qwen-scope-self-check-model.json",
+    `${JSON.stringify(
+      {
+        selected_model: "local-deterministic-preflight",
+        fallback_used: false,
+        attempts: [],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  if (approvedRoots.length === 0 && expectedFiles.length > 0) {
     return {
       ok: false,
       failureCode: "execution_scope_self_check_failed",
-      failureSummary: "Qwen scope self-check failed before execution.",
-      exactProblem: checkResult.stderr || checkResult.error || "Unknown scope self-check failure.",
-      failedChecks: [`ollama status=${checkResult.status}`],
-      requiredChanges: ["Re-run the execution scope self-check and confirm the approved write boundary."],
+      failureSummary: "Execution preflight could not determine an approved write root.",
+      exactProblem: `Expected files require a write root, but none was found. Expected files: ${expectedFiles.join(", ")}`,
+      failedChecks: ["approved_write_roots = []"],
+      requiredChanges: ["Add or preserve an explicit approved write root before execution."],
     };
   }
 
-  let parsed;
-  try {
-    parsed = parseModelJson(checkResult.stdout || "");
-  } catch (error) {
-    return {
-      ok: false,
-      failureCode: "execution_scope_self_check_invalid_json",
-      failureSummary: "Qwen scope self-check output was not valid JSON.",
-      exactProblem: sanitizeText(error.message),
-      failedChecks: ["Scope self-check JSON parse failed."],
-      requiredChanges: ["Return valid JSON for the scope self-check only."],
-    };
-  }
-
-  const allowedWritePaths = Array.isArray(parsed.allowed_write_paths)
-    ? parsed.allowed_write_paths.map((entry) => sanitizeText(entry).trim()).filter(Boolean)
-    : [];
-  const gitAllowed = Boolean(parsed.git_allowed);
-  const scopeOk = Boolean(parsed.scope_ok);
-  const reason = sanitizeText(parsed.reason || "").trim();
-
-  if (!scopeOk) {
-    return {
-      ok: false,
-      failureCode: "execution_scope_self_check_failed",
-      failureSummary: "Qwen scope self-check did not confirm the approved boundary.",
-      exactProblem: reason || "scope_ok was false.",
-      failedChecks: ["scope_ok = false"],
-      requiredChanges: ["Confirm the approved write scope and git restriction before execution."],
-    };
-  }
-
-  if (gitAllowed) {
-    return {
-      ok: false,
-      failureCode: "execution_scope_self_check_failed",
-      failureSummary: "Qwen scope self-check incorrectly allowed git actions.",
-      exactProblem: "git_allowed returned true for a task that does not authorize version-control actions.",
-      failedChecks: ["git_allowed = true"],
-      requiredChanges: ["Acknowledge that git actions are not allowed unless explicitly approved."],
-    };
-  }
-
-  if (approvedRoots.length === 0 && allowedWritePaths.length > 0) {
-    return {
-      ok: false,
-      failureCode: "execution_scope_self_check_failed",
-      failureSummary: "Qwen scope self-check claimed write access without an approved path.",
-      exactProblem: `Returned allowed_write_paths=${allowedWritePaths.join(", ")}`,
-      failedChecks: ["allowed_write_paths non-empty without approved write root"],
-      requiredChanges: ["Return no allowed write paths when the task does not authorize file writes."],
-    };
-  }
-
-  const outOfScope = allowedWritePaths.filter(
-    (entry) => !approvedRoots.some((root) => isPathWithinApprovedRoot(entry, root)),
+  const outOfScope = expectedFiles.filter(
+    (entry) => approvedRoots.length > 0 && !approvedRoots.some((root) => isPathWithinApprovedRoot(entry, root)),
   );
   if (outOfScope.length > 0) {
     return {
       ok: false,
       failureCode: "execution_scope_self_check_failed",
-      failureSummary: "Qwen scope self-check included paths outside the approved write root.",
-      exactProblem: `Out-of-scope paths: ${outOfScope.join(", ")}`,
-      failedChecks: ["allowed_write_paths exceeded approved root"],
-      requiredChanges: [`Keep all write paths within: ${approvedRoots.join(", ") || "none"}`],
+      failureSummary: "Execution preflight found expected files outside the approved write root.",
+      exactProblem: `Out-of-scope expected files: ${outOfScope.join(", ")}`,
+      failedChecks: outOfScope.map((entry) => `outside_approved_root(${entry}) = true`),
+      requiredChanges: [`Keep all expected writes within: ${approvedRoots.join(", ") || "none"}`],
+    };
+  }
+
+  if (gitAuthorized) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: "Execution preflight detected git authorization in a task that should stay local-only.",
+      exactProblem: "Git actions were inferred as authorized from the task text.",
+      failedChecks: ["git_authorized = true"],
+      requiredChanges: ["Remove git/version-control actions from the approved task or authorize them explicitly in a dedicated task."],
     };
   }
 
   writeArtifact(
     task,
     "qwen-scope-self-check.json",
-    `${JSON.stringify({ approved_roots: approvedRoots, allowed_write_paths: allowedWritePaths, git_allowed: gitAllowed, scope_ok: scopeOk }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        approved_roots: approvedRoots,
+        expected_files: expectedFiles,
+        git_allowed: false,
+        scope_ok: true,
+        mode: "local-deterministic-preflight",
+      },
+      null,
+      2,
+    )}\n`,
   );
   return { ok: true };
 }
 
 function buildExecutionPrompt(task, actionPlanText) {
   const contractText = getQwenExecutorContractText();
+  const executionBrief = buildCompactExecutionBrief(task, actionPlanText);
+  const approvedRoots = extractApprovedWriteRoots(task);
+  const expectedFiles = extractExpectedFiles(task);
+  const firstExpectedFile = expectedFiles[0] || "";
   const priorFailureSummary = sanitizeText(task.last_failure_summary).trim();
   const priorFailureCode = sanitizeText(task.last_failure_code).trim();
   const retryContext =
@@ -857,6 +925,18 @@ function buildExecutionPrompt(task, actionPlanText) {
     "Inside JSON strings, escape newlines as \\n and tabs as \\t.",
     "If execution is review-only, return a final_outcome that says exactly what review artifact or report was produced.",
     "Unless the approved task explicitly authorizes version-control actions, do not run git init, git add, git commit, git push, create branches, or open pull requests.",
+    approvedRoots.length > 0
+      ? `All writes must stay inside: ${approvedRoots.join(", ")}`
+      : "No file writes are authorized unless explicitly listed in the approved task.",
+    firstExpectedFile
+      ? `Before anything else, prove write access by creating or updating this expected file inside scope: ${firstExpectedFile}`
+      : "",
+    expectedFiles.length > 0
+      ? `Do not report success unless these expected files exist on disk: ${expectedFiles.join(", ")}`
+      : "",
+    firstExpectedFile
+      ? `If you cannot write ${firstExpectedFile}, return reframe_required=true and explain the blocker.`
+      : "",
     "",
     `Task ID: ${sanitizeText(task.task_id)}`,
     `Task Title: ${sanitizeText(task.title)}`,
@@ -867,12 +947,13 @@ function buildExecutionPrompt(task, actionPlanText) {
     contractText,
     retryContext,
     "",
-    "Approved action plan:",
-    sanitizeText(actionPlanText),
+    "Compact execution brief:",
+    executionBrief,
   ].join("\n");
 }
 
 function buildScopeSelfCheckPrompt(task, actionPlanText, approvedRoots) {
+  const scopeBrief = buildCompactScopeBrief(task, actionPlanText);
   return [
     "You are Qwen, the local execution assistant for AI Assistant OS.",
     "Before execution, confirm your write boundary and git restriction.",
@@ -886,13 +967,67 @@ function buildScopeSelfCheckPrompt(task, actionPlanText, approvedRoots) {
     `Task Title: ${sanitizeText(task.title)}`,
     `Approved write roots: ${approvedRoots.length ? approvedRoots.join(", ") : "none"}`,
     "",
-    "Approved action plan:",
-    sanitizeText(actionPlanText),
+    "Execution scope brief:",
+    scopeBrief,
   ].join("\n");
 }
 
+function isGitAuthorizedForTask(task, actionPlanText) {
+  const negativeText = [
+    sanitizeText(task.body.constraints_guardrails),
+    sanitizeText(task.body.full_context),
+    sanitizeText(task.body.proposed_action),
+    sanitizeText(actionPlanText),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (/do not run git init|do not run version-control actions|git actions are not allowed/i.test(negativeText)) {
+    return false;
+  }
+
+  const explicitAuthorizationText = [
+    sanitizeText(task.revised_instructions),
+    sanitizeText(task.operator_notes),
+    sanitizeText(task.body.operator_notes),
+    sanitizeText(task.body.escalation_notes),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return /git (actions|operations) explicitly authorized|version-control actions explicitly authorized|git is authorized for this task|allow git (init|add|commit|push)|allow version-control actions/i.test(
+    explicitAuthorizationText,
+  );
+}
+
 function invokeOllama(prompt) {
-  const model = process.env.OLLAMA_MODEL || "qwen2.5-coder:7b";
+  const primaryModel = getPrimaryOllamaModel();
+  const fallbackModel = getFallbackOllamaModel(primaryModel);
+  const primaryResult = runOllamaModel(primaryModel, prompt);
+
+  if (primaryResult.ok || !fallbackModel || !shouldTryFallback(primaryResult)) {
+    return primaryResult;
+  }
+
+  const fallbackResult = runOllamaModel(fallbackModel, prompt);
+  if (fallbackResult.ok) {
+    return {
+      ...fallbackResult,
+      fallbackUsed: true,
+      attempts: [summarizeOllamaAttempt(primaryResult), summarizeOllamaAttempt(fallbackResult)],
+    };
+  }
+
+  return {
+    ...fallbackResult,
+    fallbackUsed: true,
+    attempts: [summarizeOllamaAttempt(primaryResult), summarizeOllamaAttempt(fallbackResult)],
+    stderr: [primaryResult.stderr, fallbackResult.stderr].filter(Boolean).join("\n\n"),
+    error: [primaryResult.error, fallbackResult.error].filter(Boolean).join("\n\n"),
+  };
+}
+
+function runOllamaModel(model, prompt) {
   const raw = spawnSync("ollama", ["run", model], {
     cwd: ROOT,
     encoding: "utf8",
@@ -902,10 +1037,52 @@ function invokeOllama(prompt) {
 
   return {
     ok: !raw.error && raw.status === 0,
+    model,
     status: raw.status,
     stdout: sanitizeText(raw.stdout || ""),
     stderr: sanitizeText(raw.stderr || ""),
     error: raw.error ? sanitizeText(raw.error.message) : "",
+    fallbackUsed: false,
+    attempts: [],
+  };
+}
+
+function getPrimaryOllamaModel() {
+  return sanitizeText(process.env.OLLAMA_MODEL || "qwen2.5-coder:7b").trim();
+}
+
+function getFallbackOllamaModel(primaryModel) {
+  const fallback = sanitizeText(
+    process.env.OLLAMA_FALLBACK_MODEL || "deepseek-coder:6.7b",
+  ).trim();
+  if (!fallback || fallback === primaryModel) {
+    return "";
+  }
+  return fallback;
+}
+
+function shouldTryFallback(result) {
+  if (result.ok) {
+    return false;
+  }
+
+  const failureText = `${sanitizeText(result.stderr)} ${sanitizeText(result.error)}`.toLowerCase();
+  return (
+    failureText.includes("llama runner process has terminated") ||
+    failureText.includes("500 internal server error") ||
+    failureText.includes("cuda error") ||
+    failureText.includes("out of memory") ||
+    failureText.includes("timed out")
+  );
+}
+
+function summarizeOllamaAttempt(result) {
+  return {
+    model: result.model || "",
+    ok: Boolean(result.ok),
+    status: result.status,
+    stderr: sanitizeText(result.stderr || "").slice(0, 400),
+    error: sanitizeText(result.error || "").slice(0, 400),
   };
 }
 
@@ -970,6 +1147,195 @@ function attemptExecutionJsonRepair(task, rawOutput, parseError) {
       ],
     };
   }
+}
+
+function buildCompactExecutionBrief(task, actionPlanText) {
+  const approvedRoots = extractApprovedWriteRoots(task);
+  const sections = [
+    `Task summary: ${sanitizeText(task.body.summary || task.title).trim()}`,
+    task.body.proposed_action
+      ? `Approved action: ${sanitizeText(task.body.proposed_action).trim()}`
+      : "",
+    approvedRoots.length > 0 ? `Allowed write roots: ${approvedRoots.join(", ")}` : "",
+    formatListSection("Expected files", extractExpectedFiles(task)),
+    formatListSection("Verification targets", extractVerificationTargets(task)),
+    formatListSection("Critical constraints", extractConstraintLines(task)),
+    formatListSection("Execution notes", extractActionPlanHighlights(actionPlanText)),
+  ].filter(Boolean);
+
+  return truncateForLocalExecutor(sections.join("\n\n"), 3600);
+}
+
+function buildCompactScopeBrief(task, actionPlanText) {
+  const approvedRoots = extractApprovedWriteRoots(task);
+  const sections = [
+    `Task summary: ${sanitizeText(task.body.summary || task.title).trim()}`,
+    approvedRoots.length > 0 ? `Allowed write roots: ${approvedRoots.join(", ")}` : "",
+    formatListSection("Expected files", extractExpectedFiles(task)),
+    formatListSection("Critical constraints", extractConstraintLines(task)),
+    formatListSection("Execution notes", extractActionPlanHighlights(actionPlanText, 4)),
+  ].filter(Boolean);
+
+  return truncateForLocalExecutor(sections.join("\n\n"), 2200);
+}
+
+function extractExpectedFiles(task) {
+  const source = [
+    sanitizeText(task.body.full_context),
+    sanitizeText(task.body.proposed_action),
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const approvedRoots = extractApprovedWriteRoots(task);
+  const defaultRoot = approvedRoots[0] || "";
+  const results = [];
+  const lines = source
+    .split(/\r?\n/)
+    .map((line) => sanitizeText(line).trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (!/^(Files:|Expected file footprint:|- )/i.test(line)) {
+      continue;
+    }
+    for (const candidate of extractFilePathCandidates(line, defaultRoot)) {
+      results.push(candidate);
+    }
+  }
+
+  return uniqueList(results).slice(0, 16);
+}
+
+function extractFilePathCandidates(line, defaultRoot) {
+  const normalizedRoot = normalizeWindowsPath(defaultRoot);
+  const cleanedLine = sanitizeText(line)
+    .replace(/^(Files:|Expected file footprint:)\s*/i, "")
+    .replace(/^-+\s*/, "")
+    .trim();
+
+  if (!cleanedLine) {
+    return [];
+  }
+
+  const candidates = [];
+  const absoluteMatches = cleanedLine.match(/[A-Z]:\\[^,\r\n]+/g) || [];
+  for (const match of absoluteMatches) {
+    const clean = normalizeWindowsPath(match.replace(/[;,.]+$/g, "").trim());
+    if (clean) {
+      candidates.push(clean);
+    }
+  }
+
+  if (candidates.length > 0) {
+    return candidates;
+  }
+
+  if (!normalizedRoot) {
+    return [];
+  }
+
+  const segments = cleanedLine
+    .split(",")
+    .map((segment) => segment.trim().replace(/[;,.]+$/g, ""))
+    .filter(Boolean);
+
+  for (const segment of segments) {
+    if (!/[\\/]/.test(segment) && !/\.[A-Za-z0-9]+$/.test(segment)) {
+      continue;
+    }
+    candidates.push(normalizeWindowsPath(path.join(normalizedRoot, segment)));
+  }
+
+  return candidates;
+}
+
+function extractVerificationTargets(task) {
+  const lines = sanitizeText(
+    [task.body.full_context, task.body.proposed_action].filter(Boolean).join("\n"),
+  )
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const results = [];
+  let captureNext = false;
+  for (const line of lines) {
+    if (/^Verification target:?$/i.test(line)) {
+      captureNext = true;
+      continue;
+    }
+    if (captureNext) {
+      results.push(line.replace(/^-+\s*/, ""));
+      captureNext = false;
+      continue;
+    }
+    if (/^(verify|verification|acceptance criteria)/i.test(line)) {
+      results.push(line.replace(/^-+\s*/, ""));
+    }
+  }
+
+  return uniqueList(results).slice(0, 8);
+}
+
+function extractConstraintLines(task) {
+  return uniqueList(
+    sanitizeText(task.body.constraints_guardrails)
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^-+\s*/, "").trim())
+      .filter(Boolean),
+  ).slice(0, 8);
+}
+
+function extractActionPlanHighlights(actionPlanText, limit = 6) {
+  const lines = sanitizeText(actionPlanText)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const results = [];
+  for (const line of lines) {
+    if (/^(Task:|Execution Owner:|Execution Mode:|Action Plan:|Verification:|GPT Plan Reference:)/i.test(line)) {
+      continue;
+    }
+    if (/^(No direct repo or cloud writes|Do not run git init|Unless the approved task explicitly authorizes version-control actions)/i.test(line)) {
+      results.push(line);
+      continue;
+    }
+    if (/^(Re-read|Execute only|Stop and escalate|Record exact outputs|Confirm the intended artifact|Run the narrowest relevant verification)/i.test(line)) {
+      results.push(line);
+      continue;
+    }
+    if (/^(Files:|Expected file footprint:|Verification target:)/i.test(line)) {
+      results.push(line);
+    }
+  }
+
+  return uniqueList(results).slice(0, limit);
+}
+
+function formatListSection(title, entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return "";
+  }
+  return `${title}:\n${entries.map((entry) => `- ${sanitizeText(entry)}`).join("\n")}`;
+}
+
+function uniqueList(entries) {
+  return Array.from(
+    new Set(
+      (entries || [])
+        .map((entry) => sanitizeText(entry).trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function truncateForLocalExecutor(text, maxLength) {
+  const clean = sanitizeText(text).trim();
+  if (clean.length <= maxLength) {
+    return clean;
+  }
+  return `${clean.slice(0, maxLength - 20).trim()}\n\n[truncated for local executor]`;
 }
 
 function extractApprovedWriteRoots(task) {

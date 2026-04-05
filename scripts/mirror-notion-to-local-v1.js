@@ -48,22 +48,27 @@ async function main() {
         continue;
       }
       const lastEdited = sanitizeText(page.last_edited_time);
+      const fingerprint = buildPageFingerprint(page);
       const previous = syncState.pages && syncState.pages[page.id];
-      if (previous && previous.last_edited_time === lastEdited) {
+      if (
+        previous &&
+        previous.last_edited_time === lastEdited &&
+        sanitizeText(previous.fingerprint) === fingerprint
+      ) {
         continue;
       }
 
       const task = await mapNotionToTaskJson(page);
       if (!task.task_id) {
         console.warn("[MIRROR] Skipping page without task_id:", page.id);
-        updateNotionSyncState(page.id, lastEdited);
+        updateNotionSyncState(page.id, lastEdited, fingerprint);
         continue;
       }
 
       const filePath = path.join(QUEUE_DIR, `task-${sanitizeFileName(task.task_id)}.json`);
       fs.mkdirSync(QUEUE_DIR, { recursive: true });
       fs.writeFileSync(filePath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
-      updateNotionSyncState(page.id, lastEdited);
+      updateNotionSyncState(page.id, lastEdited, fingerprint);
       captured += 1;
       console.log(
         `[MIRROR] Captured task: ${sanitizeText(task.title)} (${sanitizeText(task.task_id)})`,
@@ -202,6 +207,26 @@ function sanitizeFileName(value) {
     .replace(/[^\w.-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function buildPageFingerprint(page) {
+  const props = (page && page.properties) || {};
+  const fields = [
+    page && page.id,
+    page && page.last_edited_time,
+    getPropValue(props, "Task ID"),
+    getPropValue(props, "Title") || getPropValue(props, "Name"),
+    getPropValue(props, "Status"),
+    getPropValue(props, "Decision"),
+    getPropValue(props, "Sync Status"),
+    getPropValue(props, "Workflow Stage"),
+    getPropValue(props, "Approval Gate"),
+    getPropValue(props, "Current Prompt Template"),
+    getPropValue(props, "Operator Notes"),
+    getPropValue(props, "Revised Instructions"),
+    getPropValue(props, "Updated At"),
+  ];
+  return fields.map((value) => sanitizeText(value)).join("|");
 }
 
 main().catch((error) => {
