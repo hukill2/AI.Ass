@@ -12,3 +12,10 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+runtime/**
+!runtime/
+!runtime/sample-invalid.json
+!runtime/sample-valid.json
+!runtime/test-missing-version.json
+!runtime/test-nonstring-version.json
+!runtime/test-valid-version.json
