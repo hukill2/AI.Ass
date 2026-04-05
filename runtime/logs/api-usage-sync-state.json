@@ -1,10 +1,71 @@
 {
-  "ledger_hash": "5041cebd00958396e03bbf86d4d6934953318012",
-  "synced_at": "2026-04-04T07:39:32.118Z",
-  "total_cost": 0.1952,
-  "last_5hrs_cost": 0.1952,
-  "status": "HEALTHY",
-  "status_block_id": "3380f028-0c2b-81bd-bb11-febaa8de7ef7",
-  "cost_block_id": "3380f028-0c2b-8187-8efe-f2d839c79e30",
-  "divider_block_id": "3380f028-0c2b-812d-b53a-fbb81803b985"
+  "ledger_hash": "778a189509bbab64644fcbc59625e6e0fcc8a2a8",
+  "synced_at": "2026-04-05T13:48:10.209Z",
+  "content_version": 2,
+  "totals": {
+    "total": {
+      "requests": 10,
+      "promptTokens": 16465,
+      "completionTokens": 35951,
+      "totalTokens": 52416,
+      "costUsd": 0.47771375
+    },
+    "windows": {
+      "last_5h": {
+        "requests": 2,
+        "promptTokens": 2766,
+        "completionTokens": 9094,
+        "totalTokens": 11860,
+        "costUsd": 0.0943975
+      },
+      "last_24h": {
+        "requests": 7,
+        "promptTokens": 10311,
+        "completionTokens": 26958,
+        "totalTokens": 37269,
+        "costUsd": 0.28246875000000005
+      },
+      "last_7d": {
+        "requests": 10,
+        "promptTokens": 16465,
+        "completionTokens": 35951,
+        "totalTokens": 52416,
+        "costUsd": 0.47771375
+      }
+    }
+  },
+  "provider_totals": {
+    "openai": {
+      "total": {
+        "requests": 10,
+        "promptTokens": 16465,
+        "completionTokens": 35951,
+        "totalTokens": 52416,
+        "costUsd": 0.47771375
+      },
+      "windows": {
+        "last_5h": {
+          "requests": 2,
+          "promptTokens": 2766,
+          "completionTokens": 9094,
+          "totalTokens": 11860,
+          "costUsd": 0.0943975
+        },
+        "last_24h": {
+          "requests": 7,
+          "promptTokens": 10311,
+          "completionTokens": 26958,
+          "totalTokens": 37269,
+          "costUsd": 0.28246875000000005
+        },
+        "last_7d": {
+          "requests": 10,
+          "promptTokens": 16465,
+          "completionTokens": 35951,
+          "totalTokens": 52416,
+          "costUsd": 0.47771375
+        }
+      }
+    }
+  }
 }

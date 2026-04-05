@@ -9,14 +9,19 @@ const {
 dotenvx.config({ quiet: true });
 
 async function sendTelegramNotification(task, reasonOverride = "") {
-  const token = sanitizeText(process.env.TELEGRAM_BOT_TOKEN).trim();
-  const chatId = sanitizeText(process.env.TELEGRAM_CHAT_ID).trim();
+  const token = sanitizeText(
+    process.env.TELEGRAM_BOT_TOKEN || process.env.AIASSBOT_TELEGRAM_BOT_TOKEN,
+  ).trim();
+  const chatId = sanitizeText(
+    process.env.TELEGRAM_CHAT_ID || process.env.AIASSBOT_TELEGRAM_CHAT_ID,
+  ).trim();
 
   if (!token || !chatId) {
     return {
       sent: false,
       skipped: true,
-      reason: "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID.",
+      reason:
+        "Missing TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID or AIASSBOT_TELEGRAM_BOT_TOKEN/AIASSBOT_TELEGRAM_CHAT_ID.",
     };
   }
 

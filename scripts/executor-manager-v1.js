@@ -34,9 +34,16 @@ const QUEUE_DIR = path.join(ROOT, "runtime", "queue");
 const COMPLETED_DIR = path.join(ROOT, "runtime", "completed");
 const LOG_DIR = path.join(ROOT, "runtime", "logs");
 const LOG_PATH = path.join(LOG_DIR, "executor-manager-v1.log");
+const QWEN_EXECUTOR_CONTRACT_PATH = path.join(ROOT, "docs", "qwen-os-executor-contract-v1.md");
+const GENERATE_EXECUTION_ORDERS_SCRIPT = path.join(
+  ROOT,
+  "scripts",
+  "generate-execution-orders-from-plan-v1.js",
+);
 const POLL_MS = 10_000;
 const OLLAMA_TIMEOUT_MS = 240_000;
 const runOnce = process.argv.includes("--once");
+let cachedQwenExecutorContract = null;
 
 main().catch((error) => {
   log(`Manager startup failed: ${sanitizeText(error.stack || error.message)}`, "ERROR");
@@ -109,6 +116,7 @@ async function processTaskFile(taskPath) {
   }
 
   if (isTerminalStatus(task.status)) {
+    maybeGenerateNextExecutionOrder(task);
     moveTaskToCompleted(taskPath);
   }
 }
@@ -275,6 +283,7 @@ function shouldPrepareActionPlanDraft(task) {
 
 function preparePromptPackage(task) {
   clearFailureState(task);
+  resetWorkflowOutputs(task, "prompt");
   task.current_prompt_template = task.current_prompt_template || DEFAULT_PROMPT_TEMPLATE;
   task.workflow_stage = STAGE.PROMPT_PACKAGE_ASSEMBLY;
   task.sync_status = "Synced";
@@ -329,6 +338,7 @@ async function runPromptApprovalFlow(task) {
 
 function prepareActionPlanDraft(task) {
   clearFailureState(task);
+  resetWorkflowOutputs(task, "action_plan");
   const gptPlanText =
     readOptionalFile(task.artifacts["gpt-plan.md"]) || sanitizeText(task.body.gpt_plan);
   const qwenActionPlan = buildActionPlan(task, gptPlanText);
@@ -352,6 +362,11 @@ async function runActionPlanApprovalFlow(task) {
   });
   if (handled.stop) {
     return handled;
+  }
+
+  if (isPlanningOnlyTask(task)) {
+    completePlanningOnlyTask(task);
+    return { changed: true, stop: true };
   }
 
   task.workflow_stage = STAGE.QWEN_EXECUTION;
@@ -526,15 +541,20 @@ async function executeApprovedActionPlan(task) {
   try {
     patch = parseModelJson(runResult.stdout || "");
   } catch (error) {
-    return handleExecutionFailure(task, {
-      failureCode: "execution_invalid_json",
-      failureSummary: "Qwen execution output was not valid JSON.",
-      exactProblem: sanitizeText(error.message),
-      failedChecks: ["Execution patch JSON parse failed."],
-      requiredChanges: ["Regenerate the execution patch as valid JSON only."],
-      retryable: task.stage_retry_count < 1,
-      nextOwner: task.stage_retry_count < 1 ? "qwen" : "operator",
-    });
+    const repaired = attemptExecutionJsonRepair(task, runResult.stdout || "", error);
+    if (repaired.ok) {
+      patch = repaired.patch;
+    } else {
+      return handleExecutionFailure(task, {
+        failureCode: "execution_invalid_json",
+        failureSummary: "Qwen execution output was not valid JSON.",
+        exactProblem: sanitizeText(repaired.exactProblem || error.message),
+        failedChecks: repaired.failedChecks || ["Execution patch JSON parse failed."],
+        requiredChanges: ["Regenerate the execution patch as valid JSON only."],
+        retryable: task.stage_retry_count < 1,
+        nextOwner: task.stage_retry_count < 1 ? "qwen" : "operator",
+      });
+    }
   }
 
   const finalOutcome = sanitizeText(
@@ -684,6 +704,7 @@ function handleExecutionFailure(task, failure) {
 }
 
 function buildExecutionPrompt(task, actionPlanText) {
+  const contractText = getQwenExecutorContractText();
   return [
     "You are Qwen, the local execution assistant for AI Assistant OS.",
     "Execute the approved action plan and return JSON only.",
@@ -692,9 +713,16 @@ function buildExecutionPrompt(task, actionPlanText) {
     "If the task must be reframed, set reframe_required=true and include failure_reason.",
     "Return compact JSON on a single line.",
     "Inside JSON strings, escape newlines as \\n and tabs as \\t.",
+    "If execution is review-only, return a final_outcome that says exactly what review artifact or report was produced.",
+    "Unless the approved task explicitly authorizes version-control actions, do not run git init, git add, git commit, git push, create branches, or open pull requests.",
     "",
     `Task ID: ${sanitizeText(task.task_id)}`,
     `Task Title: ${sanitizeText(task.title)}`,
+    `Workflow Stage: ${sanitizeText(task.workflow_stage)}`,
+    `Approval Gate: ${sanitizeText(task.approval_gate)}`,
+    "",
+    "Qwen OS Executor Contract:",
+    contractText,
     "",
     "Approved action plan:",
     sanitizeText(actionPlanText),
@@ -724,14 +752,9 @@ function parseModelJson(rawText) {
   if (!cleaned) {
     throw new Error("Model returned empty output.");
   }
-  const fenced = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  const text = fenced ? fenced[1].trim() : cleaned;
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
-  const candidate =
-    firstBrace !== -1 && lastBrace > firstBrace
-      ? text.slice(firstBrace, lastBrace + 1)
-      : text;
+
+  const text = stripMarkdownCodeFences(cleaned).trim();
+  const candidate = extractLikelyJsonObject(text);
   try {
     return JSON.parse(candidate);
   } catch (error) {
@@ -741,6 +764,107 @@ function parseModelJson(rawText) {
     }
     throw error;
   }
+}
+
+function attemptExecutionJsonRepair(task, rawOutput, parseError) {
+  const repairPrompt = [
+    "You are repairing malformed JSON from a previous model response.",
+    "Return valid JSON only on a single line.",
+    "Do not add markdown fences or commentary.",
+    'Return exactly this schema: {"body":{"final_outcome":"..."},"reframe_required":false}',
+    "Preserve the meaning of the original response, but keep final_outcome concise.",
+    "Escape newlines as \\n and tabs as \\t inside strings.",
+    "",
+    "Malformed output to repair:",
+    sanitizeText(rawOutput),
+  ].join("\n");
+
+  const repairResult = invokeOllama(repairPrompt);
+  writeArtifact(task, "qwen-execution-repair-raw.txt", `${repairResult.stdout || ""}\n`);
+  if (repairResult.stderr) {
+    writeArtifact(task, "qwen-execution-repair-stderr.txt", `${repairResult.stderr}\n`);
+  }
+
+  if (!repairResult.ok) {
+    return {
+      ok: false,
+      exactProblem: repairResult.stderr || repairResult.error || sanitizeText(parseError.message),
+      failedChecks: [
+        "Execution patch JSON parse failed.",
+        `Repair attempt runtime status=${repairResult.status}`,
+      ],
+    };
+  }
+
+  try {
+    return { ok: true, patch: parseModelJson(repairResult.stdout || "") };
+  } catch (repairError) {
+    return {
+      ok: false,
+      exactProblem: sanitizeText(repairError.message),
+      failedChecks: [
+        "Execution patch JSON parse failed.",
+        "Repair-only JSON regeneration also failed.",
+      ],
+    };
+  }
+}
+
+function stripMarkdownCodeFences(input) {
+  return String(input || "")
+    .replace(/^\s*```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+}
+
+function extractLikelyJsonObject(input) {
+  const text = String(input || "");
+  const firstBrace = text.indexOf("{");
+  if (firstBrace === -1) {
+    return text.trim();
+  }
+
+  let inString = false;
+  let escaped = false;
+  let depth = 0;
+
+  for (let index = firstBrace; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(firstBrace, index + 1).trim();
+      }
+    }
+  }
+
+  const lastBrace = text.lastIndexOf("}");
+  return lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1).trim() : text.trim();
 }
 
 function repairJsonControlCharacters(input) {
@@ -806,6 +930,27 @@ function readOptionalFile(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function getQwenExecutorContractText() {
+  if (cachedQwenExecutorContract != null) {
+    return cachedQwenExecutorContract;
+  }
+
+  try {
+    cachedQwenExecutorContract = sanitizeText(
+      fs.readFileSync(QWEN_EXECUTOR_CONTRACT_PATH, "utf8"),
+    ).trim();
+  } catch (error) {
+    cachedQwenExecutorContract = [
+      "Contract purpose: execute only the approved bounded task for the current stage.",
+      "Output contract: return one-line JSON only; no markdown; escape newlines as \\n.",
+      'Allowed schema: {"body":{"final_outcome":"..."},"reframe_required":false}',
+      "If blocked or scope would widen, set reframe_required=true and include failure_reason.",
+    ].join("\n");
+  }
+
+  return cachedQwenExecutorContract;
+}
+
 function ensurePromptPackageArtifact(task) {
   let promptText = readOptionalFile(task.artifacts["prompt-package.md"]).trim();
   if (promptText) {
@@ -863,6 +1008,51 @@ function ensureActionPlanArtifact(task) {
   return actionPlanText;
 }
 
+function resetWorkflowOutputs(task, scope) {
+  if (scope === "prompt") {
+    task.body.librarian_validation_notes = "";
+    task.body.gpt_plan = "";
+    task.body.qwen_action_plan_for_approval = "";
+    task.body.failure_report = "";
+    task.body.escalation_notes = "";
+    task.body.final_outcome = "";
+    task.approval_gate = APPROVAL_GATE.PROMPT;
+    return;
+  }
+
+  if (scope === "action_plan") {
+    task.body.failure_report = "";
+    task.body.escalation_notes = "";
+    task.body.final_outcome = "";
+    return;
+  }
+}
+
+function isPlanningOnlyTask(task) {
+  if (task.planning_only === true) {
+    return true;
+  }
+
+  return sanitizeText(task.current_prompt_template).trim() === "Project intake / planning prompt";
+}
+
+function completePlanningOnlyTask(task) {
+  clearFailureState(task);
+  task.status = STATUS.COMPLETED;
+  task.workflow_stage = STAGE.COMPLETED;
+  task.sync_status = "Synced";
+  task.execution_allowed = false;
+  task.body.final_outcome = [
+    "Planning package completed and verified.",
+    "Approved outputs now include the project scope, architecture, phased roadmap, open questions, and bounded implementation backlog.",
+    "Next step: create reviewable implementation tasks from the approved backlog; no execution phase was required for this planning-only intake.",
+  ].join("\n");
+  appendAttemptHistory(
+    task,
+    "Planning-only task completed after validated action plan; execution stage skipped.",
+  );
+}
+
 function listQueueJsonFiles() {
   return fs
     .readdirSync(QUEUE_DIR, { withFileTypes: true })
@@ -880,6 +1070,182 @@ function moveTaskToCompleted(taskPath) {
   if (fs.existsSync(taskPath)) {
     fs.renameSync(taskPath, completedPath);
   }
+}
+
+function maybeGenerateNextExecutionOrder(task) {
+  const sequence = inferExecutionSequence(task);
+  if (!sequence) {
+    return;
+  }
+
+  const nextItem = sequence.currentItem + 1;
+  const existingTaskId = buildGeneratedExecutionTaskId(sequence.projectName, nextItem, sequence.backlog);
+  if (generatedTaskExists(existingTaskId)) {
+    log(
+      `Auto-sequence skipped for ${task.task_id}: next execution order already exists (${existingTaskId}).`,
+    );
+    return;
+  }
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      GENERATE_EXECUTION_ORDERS_SCRIPT,
+      "--task-id",
+      sequence.planningTaskId,
+      "--items",
+      String(nextItem),
+    ],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+      timeout: 120_000,
+      env: process.env,
+    },
+  );
+
+  if (result.status !== 0) {
+    log(
+      `Auto-sequence failed for ${task.task_id}: ${sanitizeText(
+        result.stderr || result.stdout || "unknown error",
+      )}`,
+      "WARN",
+    );
+    return;
+  }
+
+  log(
+    `Auto-generated next execution order for ${task.task_id}: backlog item ${nextItem}.`,
+  );
+}
+
+function inferExecutionSequence(task) {
+  if (sanitizeText(task.status).trim() !== STATUS.COMPLETED) {
+    return null;
+  }
+  if (sanitizeText(task.current_prompt_template).trim() !== "Standard execution prompt") {
+    return null;
+  }
+
+  const triggerReason = sanitizeText(task.trigger_reason).trim();
+  const match = triggerReason.match(/^Approved planning backlog item\s+(\d+)\s+from\s+([a-z0-9-]+)$/i);
+  if (!match) {
+    return null;
+  }
+
+  const currentItem = Number(match[1]);
+  const planningTaskId = sanitizeText(match[2]).trim();
+  if (!Number.isFinite(currentItem) || !planningTaskId) {
+    return null;
+  }
+
+  const planningTask = loadTaskById(planningTaskId);
+  if (!planningTask) {
+    log(`Auto-sequence could not load planning task ${planningTaskId}.`, "WARN");
+    return null;
+  }
+
+  const backlog = parseImplementationBacklogFromPlan(planningTask.body.gpt_plan);
+  if (!Array.isArray(backlog) || backlog.length === 0) {
+    return null;
+  }
+  if (!backlog.some((item) => item.number === currentItem)) {
+    return null;
+  }
+  if (!backlog.some((item) => item.number === currentItem + 1)) {
+    return null;
+  }
+
+  const projectName = sanitizeText(planningTask.title)
+    .replace(/\s*-\s*Project Intake\s*$/i, "")
+    .trim();
+
+  return {
+    planningTaskId,
+    currentItem,
+    backlog,
+    projectName,
+  };
+}
+
+function loadTaskById(taskId) {
+  const fileName = `task-${sanitizeFileName(taskId)}.json`;
+  const candidates = [
+    path.join(QUEUE_DIR, fileName),
+    path.join(COMPLETED_DIR, fileName),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return normalizeTask(readTask(candidate));
+    }
+  }
+  return null;
+}
+
+function generatedTaskExists(taskId) {
+  const fileName = `task-${sanitizeFileName(taskId)}.json`;
+  return (
+    fs.existsSync(path.join(QUEUE_DIR, fileName)) ||
+    fs.existsSync(path.join(COMPLETED_DIR, fileName))
+  );
+}
+
+function parseImplementationBacklogFromPlan(planText) {
+  const lines = sanitizeText(planText || "").split(/\r?\n/);
+  const start = lines.findIndex((line) => /^Implementation backlog\b/i.test(line.trim()));
+  if (start === -1) {
+    return [];
+  }
+
+  const items = [];
+  let current = null;
+
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = sanitizeText(lines[index]).trim();
+    if (!line) {
+      continue;
+    }
+    if (/^(Verification and review flow|Escalation points|Notes)\b/i.test(line)) {
+      break;
+    }
+    const match = line.match(/^(\d+)[\)\.]\s+(.+)$/);
+    if (match) {
+      if (current) {
+        items.push(current);
+      }
+      current = {
+        number: Number(match[1]),
+        title: match[2].trim(),
+      };
+    }
+  }
+
+  if (current) {
+    items.push(current);
+  }
+  return items;
+}
+
+function buildGeneratedExecutionTaskId(projectName, backlogItemNumber, backlog) {
+  const item = Array.isArray(backlog)
+    ? backlog.find((entry) => entry.number === backlogItemNumber)
+    : null;
+  if (!item) {
+    return "";
+  }
+  const backlogTag = String(backlogItemNumber).padStart(2, "0");
+  return sanitizeFileName(
+    `${sanitizeText(projectName).toLowerCase()}-exec-${backlogTag}-${sanitizeText(
+      item.title,
+    ).toLowerCase()}`,
+  );
+}
+
+function sanitizeFileName(value) {
+  return String(value || "")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function log(message, level = "INFO") {

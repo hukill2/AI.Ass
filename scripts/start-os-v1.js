@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+require("dotenv").config();
 const path = require("path");
 const readline = require("readline");
 const { spawn } = require("child_process");
@@ -16,6 +17,20 @@ const services = [
     script: path.join(__dirname, "executor-manager-v1.js"),
   },
 ];
+
+if (String(process.env.API_USAGE_SYNC_ENABLED || "true").toLowerCase() !== "false") {
+  services.push({
+    name: "api-usage",
+    script: path.join(__dirname, "watch-api-usage-dashboard-v1.js"),
+  });
+}
+
+if (String(process.env.TELEGRAM_INTAKE_ENABLED || "").toLowerCase() === "true") {
+  services.push({
+    name: "telegram-intake",
+    script: path.join(__dirname, "telegram-project-intake-v1.js"),
+  });
+}
 
 const children = [];
 let shuttingDown = false;

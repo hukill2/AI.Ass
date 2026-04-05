@@ -179,6 +179,10 @@ function verdict(
   retryable,
   escalateToOperator,
 ) {
+  const workflowStage =
+    gate === APPROVAL_GATE.PROMPT
+      ? STAGE.LIBRARIAN_PROMPT_VALIDATION
+      : STAGE.LIBRARIAN_ACTION_PLAN_VALIDATION;
   const result = {
     verdict: mode,
     failure_code: failureCode,
@@ -187,16 +191,15 @@ function verdict(
     failed_checks: failedChecks,
     required_changes: requiredChanges,
     retryable,
-    operator_message: [
-      `Why it failed: ${failureSummary}`,
-      `What is wrong now: ${exactProblem}`,
-      `What Qwen/Librarian already tried: ${failedChecks.length > 0 ? failedChecks.join("; ") : "Initial validation only."}`,
-      `What decision or edit is needed from you: ${requiredChanges.length > 0 ? requiredChanges.join("; ") : "No operator change required."}`,
-    ].join("\n"),
-    workflow_stage:
-      gate === APPROVAL_GATE.PROMPT
-        ? STAGE.LIBRARIAN_PROMPT_VALIDATION
-        : STAGE.LIBRARIAN_ACTION_PLAN_VALIDATION,
+    operator_message: buildOperatorMessage({
+      gate,
+      mode,
+      failureSummary,
+      exactProblem,
+      failedChecks,
+      requiredChanges,
+    }),
+    workflow_stage: workflowStage,
     approval_gate: gate,
     escalate_to_operator: escalateToOperator,
   };
@@ -207,6 +210,44 @@ function verdict(
       : "librarian-action-plan-check.json";
   writeArtifact(task, fileName, `${JSON.stringify(result, null, 2)}\n`);
   return result;
+}
+
+function buildOperatorMessage({
+  gate,
+  mode,
+  failureSummary,
+  exactProblem,
+  failedChecks,
+  requiredChanges,
+}) {
+  if (mode === VERDICT.PASS) {
+    return [
+      "Validation result: Passed",
+      `Validated stage: ${
+        gate === APPROVAL_GATE.PROMPT
+          ? STAGE.LIBRARIAN_PROMPT_VALIDATION
+          : STAGE.LIBRARIAN_ACTION_PLAN_VALIDATION
+      }`,
+      `Summary: ${failureSummary}`,
+      `Confirmed state: ${exactProblem}`,
+      `Next step: ${
+        gate === APPROVAL_GATE.PROMPT
+          ? "Proceed to Architect/GPT planning."
+          : "Proceed to Qwen execution."
+      }`,
+    ].join("\n");
+  }
+
+  return [
+    `Why it failed: ${failureSummary}`,
+    `What is wrong now: ${exactProblem}`,
+    `What Qwen/Librarian already tried: ${
+      failedChecks.length > 0 ? failedChecks.join("; ") : "Initial validation only."
+    }`,
+    `What decision or edit is needed from you: ${
+      requiredChanges.length > 0 ? requiredChanges.join("; ") : "No operator change required."
+    }`,
+  ].join("\n");
 }
 
 async function main() {

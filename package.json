@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node scripts/start-os-v1.js",
     "manager": "node scripts/executor-manager-v1.js",
+    "telegram:intake": "node scripts/telegram-project-intake-v1.js",
     "watch:mirror": "node scripts/mirror-notion-watch-v1.js",
     "sync:mirror": "node scripts/mirror-notion-to-local-v1.js",
     "build:mirror": "node scripts/build-reviews-approvals-mirror-v1.js",
@@ -69,6 +70,7 @@
     "list:write-successful": "node scripts/list-write-successful-executions-v1.js",
     "list:write-verified": "node scripts/list-write-verified-executions-v1.js",
     "test:stage-aware-workflow": "node scripts/test-stage-aware-workflow-v1.js",
+    "test:project-intake": "node scripts/test-project-intake-workflow-v1.js",
     "validate:narrowed-followups": "node scripts/validate-narrowed-followup-tasks-v1.js",
     "list:narrowed-followups": "node scripts/list-narrowed-followup-tasks-v1.js",
     "promote:followup": "node scripts/promote-followup-to-task-input-v1.js"

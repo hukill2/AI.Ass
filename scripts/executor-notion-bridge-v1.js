@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const {
   STATUS,
+  STAGE,
   getSectionDefinitions,
   normalizeTask,
   sanitizeText,
@@ -71,12 +72,40 @@ async function syncTaskToNotion(task) {
     });
   }
 
-  await replacePageBody(pageId, task);
+  if (shouldSyncPageBody(task)) {
+    await replacePageBody(pageId, task);
+  }
   const refreshed = await notion.pages.retrieve({ page_id: pageId });
   task.updated_at = refreshed.last_edited_time || task.updated_at;
   updateNotionSyncState(pageId, refreshed.last_edited_time);
 
   return { skipped: false, updated_at: task.updated_at };
+}
+
+function shouldSyncPageBody(task) {
+  const status = sanitizeText(task.status).trim();
+  const workflowStage = sanitizeText(task.workflow_stage).trim();
+
+  if (
+    [
+      STATUS.DRAFT,
+      STATUS.NEEDS_EDIT,
+      STATUS.PENDING_REVIEW,
+      STATUS.ESCALATED,
+      STATUS.FAILED,
+      STATUS.COMPLETED,
+      STATUS.DENIED,
+      STATUS.ARCHIVED,
+    ].includes(status)
+  ) {
+    return true;
+  }
+
+  if (workflowStage === STAGE.ESCALATED_TO_OPERATOR) {
+    return true;
+  }
+
+  return false;
 }
 
 function buildPropertiesPayload(task, properties) {
@@ -195,20 +224,43 @@ async function listBlocks(blockId) {
 
 function buildPageBlocks(task) {
   const blocks = [];
-  for (const section of getSectionDefinitions()) {
+  for (const section of getRenderableSections(task)) {
     const content = sanitizeText(task.body[section.key]).trim();
-    if (!content && section.key !== "summary" && section.key !== "final_outcome") {
+    if (!content) {
       continue;
     }
     blocks.push(headingBlock(section.heading));
-    if (!content) {
-      blocks.push(paragraphBlock("No content yet."));
-      continue;
-    }
     const renderedBlocks = renderSectionContent(section.key, content);
     blocks.push(...renderedBlocks);
   }
   return blocks;
+}
+
+function getRenderableSections(task) {
+  const sections = getSectionDefinitions();
+  if (!isCompletedPlanningTask(task)) {
+    return sections;
+  }
+
+  const hidden = new Set([
+    "machine_task_json",
+    "prompt_template_selection",
+    "prompt_package_for_approval",
+    "librarian_validation_notes",
+    "qwen_action_plan_for_approval",
+  ]);
+
+  return sections.filter((section) => !hidden.has(section.key));
+}
+
+function isCompletedPlanningTask(task) {
+  return (
+    sanitizeText(task.status).trim() === STATUS.COMPLETED &&
+    (
+      task.planning_only === true ||
+      sanitizeText(task.current_prompt_template).trim() === "Project intake / planning prompt"
+    )
+  );
 }
 
 function renderSectionContent(sectionKey, content) {
@@ -226,7 +278,32 @@ function renderSectionContent(sectionKey, content) {
 }
 
 function buildParagraphBlocks(content) {
-  return splitTextByParagraph(content).map((paragraph) => paragraphBlock(paragraph));
+  return splitStructuredText(content);
+}
+
+function splitStructuredText(content) {
+  const lines = sanitizeText(content)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const blocks = [];
+  for (const line of lines) {
+    if (/^- /.test(line)) {
+      blocks.push(bulletedListItemBlock(line.replace(/^- /, "")));
+      continue;
+    }
+    if (/^\d+[.)]\s+/.test(line)) {
+      blocks.push(numberedListItemBlock(line.replace(/^\d+[.)]\s+/, "")));
+      continue;
+    }
+    blocks.push(paragraphBlock(line));
+  }
+  return blocks;
 }
 
 function buildCodeBlocks(content, language) {
@@ -265,6 +342,36 @@ function paragraphBlock(text) {
     object: "block",
     type: "paragraph",
     paragraph: {
+      rich_text: [
+        {
+          type: "text",
+          text: { content: sanitizeText(text) },
+        },
+      ],
+    },
+  };
+}
+
+function bulletedListItemBlock(text) {
+  return {
+    object: "block",
+    type: "bulleted_list_item",
+    bulleted_list_item: {
+      rich_text: [
+        {
+          type: "text",
+          text: { content: sanitizeText(text) },
+        },
+      ],
+    },
+  };
+}
+
+function numberedListItemBlock(text) {
+  return {
+    object: "block",
+    type: "numbered_list_item",
+    numbered_list_item: {
       rich_text: [
         {
           type: "text",
@@ -337,4 +444,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { syncTaskToNotion };
+module.exports = { syncTaskToNotion, shouldSyncPageBody };

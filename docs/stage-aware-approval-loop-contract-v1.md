@@ -44,5 +44,9 @@ Define the stage-aware Notion approval loop that keeps one task page moving thro
 - Artifacts live at `runtime/task-artifacts/<task_id>/attempt-<n>/`.
 - Each attempt may contain `machine-task.json`, `prompt-package.md`, `librarian-prompt-check.json`, `gpt-plan.md`, `qwen-action-plan.md`, `librarian-action-plan-check.json`, and `failure-report.json`.
 
+## Qwen runtime contract
+- Qwen execution behavior is governed by `docs/qwen-os-executor-contract-v1.md`.
+- Execution prompts must enforce one-line JSON output, explicit reframe signaling, and concrete final-outcome summaries.
+
 ## Notification rule
 - Notify only when the page is ready for prompt approval, ready for action-plan approval, escalated, or failed.

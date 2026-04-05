@@ -1,0 +1,18 @@
+{
+  "task_id": "mobile-detailing-app-exec-01-repo-scaffold",
+  "attempt_count": 1,
+  "workflow_stage": "Qwen Execution",
+  "failing_actor": "Qwen",
+  "failure_code": "execution_runtime_error",
+  "failure_summary": "Qwen execution failed before producing a usable result.",
+  "exact_problem": "⠋ ⠹ ⠹ ⠼ ⠼ ⠦ ⠦ ⠇ ⠏ ⠏ ⠋ ⠙ ⠸ ⠼ ⠴ ⠴ ⠦ ⠧ ⠇ ⠋ ⠙ ⠹ ⠹ ⠼ ⠼ ⠴ ⠧ ⠇ ⠏ ⠏ ⠋ ⠹ ⠸ ⠸ ⠼ ⠴ ⠧ Error: 500 Internal Server Error: llama runner process has terminated: %!w(<nil>)\n",
+  "failed_checks": [
+    "ollama status=1"
+  ],
+  "required_changes": [
+    "Review local runtime availability and retry the execution stage."
+  ],
+  "next_owner": "qwen",
+  "retryable": true,
+  "escalate_to_operator": false
+}

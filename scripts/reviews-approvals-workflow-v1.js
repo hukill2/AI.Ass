@@ -352,6 +352,7 @@ function buildMachineTask(task) {
   return sanitizeValue({
     task_id: task.task_id,
     title: task.title,
+    planning_only: Boolean(task.planning_only),
     project_id:
       (task.metadata && task.metadata.project) ||
       process.env.DEFAULT_PROJECT_ID ||

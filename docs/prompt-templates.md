@@ -98,6 +98,43 @@ Constraints:
 \- ignore unrelated untracked files unless directly required
 ```
 
+### Project intake / planning prompt
+> Template:
+```
+Use this when a new project or net-new task has been captured through intake and needs a planning-first response.
+
+Produce a planning package only. Do not implement yet.
+
+Your outputs must cover:
+\- product scope
+\- architecture / technical approach
+\- phased roadmap
+\- open questions
+\- allowed assumptions actually used
+\- escalation points for missing information
+\- implementation backlog split into bounded tasks small enough for codex-mini to complete safely
+
+Planning rules:
+\- keep the plan direct, specific, and machine-usable
+\- do not invent credentials, secrets, legal copy, or production-only values
+\- if missing information changes architecture, integrations, auth, real assets, or production readiness, escalate instead of guessing
+\- placeholders are only allowed when explicitly permitted by the intake task
+\- do not broaden scope beyond the intake brief
+
+Required sections:
+\- Scope summary
+\- Recommended architecture
+\- Key risks and assumptions
+\- Open questions for operator review
+\- Proposed v1 milestone
+\- Implementation backlog
+
+Implementation backlog rules:
+\- each task must be independently reviewable
+\- each task must be small enough for codex-mini to complete in one bounded pass
+\- include expected file footprint and verification notes for each task
+```
+
 ### Standard execution prompt
 > Template:
 ```
@@ -115,12 +152,13 @@ Your task:
 4. Update the canonical doc for the subsystem milestone.
 5. Do not broaden scope.
 6. Ignore unrelated untracked files unless directly required.
-7. Do not declare completion unless substantive changes were actually made.
+7. Do not run `git init`, `git add`, `git commit`, `git push`, branch creation, or PR creation unless the approved task explicitly authorizes version-control actions.
+8. Do not declare completion unless substantive changes were actually made.
 
 At the end, report:
 \- files changed
 \- exact canonical contract/behavior now in place
-\- whether the subsystem is complete enough to commit
+\- whether the subsystem is complete enough to review
 ```
 
 ### “Do not drift / finish the work” prompt
