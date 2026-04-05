@@ -42,6 +42,16 @@ const GENERATE_EXECUTION_ORDERS_SCRIPT = path.join(
 );
 const POLL_MS = 10_000;
 const OLLAMA_TIMEOUT_MS = 240_000;
+const EXECUTION_RETRY_LIMITS = Object.freeze({
+  execution_scope_self_check_invalid_json: 2,
+  execution_scope_self_check_failed: 2,
+  execution_runtime_error: 3,
+  execution_invalid_json: 3,
+  execution_missing_outcome: 3,
+  verification_missing_artifacts: 2,
+  verification_missing_outcome: 2,
+  default: 1,
+});
 const runOnce = process.argv.includes("--once");
 let cachedQwenExecutorContract = null;
 
@@ -518,6 +528,20 @@ function reviewArchitectPlan(task, architectResult) {
 
 async function executeApprovedActionPlan(task) {
   const actionPlanText = ensureActionPlanArtifact(task);
+  const scopeCheck = runExecutionScopeSelfCheck(task, actionPlanText);
+  if (!scopeCheck.ok) {
+    const retryMeta = getExecutionRetryMeta(task, scopeCheck.failureCode);
+    return handleExecutionFailure(task, {
+      failureCode: scopeCheck.failureCode,
+      failureSummary: scopeCheck.failureSummary,
+      exactProblem: scopeCheck.exactProblem,
+      failedChecks: scopeCheck.failedChecks,
+      requiredChanges: scopeCheck.requiredChanges,
+      retryable: retryMeta.retryable,
+      retryLimit: retryMeta.retryLimit,
+      nextOwner: retryMeta.nextOwner,
+    });
+  }
   const prompt = buildExecutionPrompt(task, actionPlanText);
   const runResult = invokeOllama(prompt);
   writeArtifact(task, "qwen-execution-raw.txt", `${runResult.stdout || ""}\n`);
@@ -526,14 +550,16 @@ async function executeApprovedActionPlan(task) {
   }
 
   if (!runResult.ok) {
+    const retryMeta = getExecutionRetryMeta(task, "execution_runtime_error");
     return handleExecutionFailure(task, {
       failureCode: "execution_runtime_error",
       failureSummary: "Qwen execution failed before producing a usable result.",
       exactProblem: runResult.stderr || runResult.error || "Unknown execution failure.",
       failedChecks: [`ollama status=${runResult.status}`],
       requiredChanges: ["Review local runtime availability and retry the execution stage."],
-      retryable: task.stage_retry_count < 1,
-      nextOwner: task.stage_retry_count < 1 ? "qwen" : "operator",
+      retryable: retryMeta.retryable,
+      retryLimit: retryMeta.retryLimit,
+      nextOwner: retryMeta.nextOwner,
     });
   }
 
@@ -545,14 +571,16 @@ async function executeApprovedActionPlan(task) {
     if (repaired.ok) {
       patch = repaired.patch;
     } else {
+      const retryMeta = getExecutionRetryMeta(task, "execution_invalid_json");
       return handleExecutionFailure(task, {
         failureCode: "execution_invalid_json",
         failureSummary: "Qwen execution output was not valid JSON.",
         exactProblem: sanitizeText(repaired.exactProblem || error.message),
         failedChecks: repaired.failedChecks || ["Execution patch JSON parse failed."],
         requiredChanges: ["Regenerate the execution patch as valid JSON only."],
-        retryable: task.stage_retry_count < 1,
-        nextOwner: task.stage_retry_count < 1 ? "qwen" : "operator",
+        retryable: retryMeta.retryable,
+        retryLimit: retryMeta.retryLimit,
+        nextOwner: retryMeta.nextOwner,
       });
     }
   }
@@ -574,14 +602,16 @@ async function executeApprovedActionPlan(task) {
   }
 
   if (!finalOutcome) {
+    const retryMeta = getExecutionRetryMeta(task, "execution_missing_outcome");
     return handleExecutionFailure(task, {
       failureCode: "execution_missing_outcome",
       failureSummary: "Qwen execution did not provide a final outcome summary.",
       exactProblem: "The execution patch is missing body.final_outcome.",
       failedChecks: ["body.final_outcome missing from execution patch."],
       requiredChanges: ["Return a concrete final outcome summary from execution."],
-      retryable: task.stage_retry_count < 1,
-      nextOwner: task.stage_retry_count < 1 ? "qwen" : "operator",
+      retryable: retryMeta.retryable,
+      retryLimit: retryMeta.retryLimit,
+      nextOwner: retryMeta.nextOwner,
     });
   }
 
@@ -593,31 +623,21 @@ async function executeApprovedActionPlan(task) {
 
   const verification = verifyExecution(task);
   if (!verification.ok) {
-    const report = buildFailureReport({
-      task,
+    const retryMeta = getExecutionRetryMeta(task, verification.failureCode);
+    return handleExecutionFailure(task, {
       workflowStage: STAGE.POST_EXECUTION_VERIFICATION,
       failingActor: "Verifier",
+      retryStage: STAGE.QWEN_EXECUTION,
       failureCode: verification.failureCode,
       failureSummary: verification.failureSummary,
       exactProblem: verification.exactProblem,
       failedChecks: verification.failedChecks,
       requiredChanges: verification.requiredChanges,
-      nextOwner: "operator",
-      retryable: false,
-      escalateToOperator: true,
+      retryable: retryMeta.retryable,
+      retryLimit: retryMeta.retryLimit,
+      nextOwner: retryMeta.nextOwner,
+      escalationNotes: verification.operatorMessage,
     });
-    applyFailureReport(task, report);
-    task.status = STATUS.ESCALATED;
-    task.workflow_stage = STAGE.POST_EXECUTION_VERIFICATION;
-    task.sync_status = "Not Synced";
-    task.escalation_reason = report.failure_summary;
-    task.body.escalation_notes = verification.operatorMessage;
-    return {
-      changed: true,
-      stop: true,
-      notifyOperator: true,
-      notifyReason: report.failure_summary,
-    };
   }
 
   clearFailureState(task);
@@ -661,10 +681,15 @@ function verifyExecution(task) {
 }
 
 function handleExecutionFailure(task, failure) {
+  const workflowStage = failure.workflowStage || STAGE.QWEN_EXECUTION;
+  const failingActor = failure.failingActor || "Qwen";
+  const retryLimit = Number.isFinite(failure.retryLimit)
+    ? failure.retryLimit
+    : getExecutionRetryLimit(failure.failureCode);
   const report = buildFailureReport({
     task,
-    workflowStage: STAGE.QWEN_EXECUTION,
-    failingActor: "Qwen",
+    workflowStage,
+    failingActor,
     failureCode: failure.failureCode,
     failureSummary: failure.failureSummary,
     exactProblem: failure.exactProblem,
@@ -676,12 +701,16 @@ function handleExecutionFailure(task, failure) {
   });
   applyFailureReport(task, report);
 
-  if (failure.retryable && task.stage_retry_count < 1) {
+  if (failure.retryable && task.stage_retry_count < retryLimit) {
     task.stage_retry_count += 1;
     task.status = STATUS.RETRYING;
-    task.workflow_stage = STAGE.QWEN_EXECUTION;
+    task.workflow_stage = failure.retryStage || STAGE.QWEN_EXECUTION;
     task.sync_status = "Synced";
-    appendAttemptHistory(task, `Retrying execution: ${failure.failureSummary}`);
+    task.body.final_outcome = "";
+    appendAttemptHistory(
+      task,
+      `Auto-retrying ${sanitizeText(failingActor).toLowerCase()} failure (${task.stage_retry_count}/${retryLimit}): ${failure.failureSummary}`,
+    );
     return { changed: true, stop: false };
   }
 
@@ -689,12 +718,14 @@ function handleExecutionFailure(task, failure) {
   task.workflow_stage = STAGE.ESCALATED_TO_OPERATOR;
   task.sync_status = "Not Synced";
   task.escalation_reason = report.failure_summary;
-  task.body.escalation_notes = [
-    `Why it failed: ${report.failure_summary}`,
-    `What is wrong now: ${report.exact_problem}`,
-    `What Qwen/Librarian already tried: ${report.failed_checks.join("; ")}`,
-    `What decision or edit is needed from you: ${report.required_changes.join("; ")}`,
-  ].join("\n");
+  task.body.escalation_notes =
+    sanitizeText(failure.escalationNotes).trim() ||
+    [
+      `Why it failed: ${report.failure_summary}`,
+      `What is wrong now: ${report.exact_problem}`,
+      `What Qwen/Librarian already tried: ${report.failed_checks.join("; ")}`,
+      `What decision or edit is needed from you: ${report.required_changes.join("; ")}`,
+    ].join("\n");
   return {
     changed: true,
     stop: true,
@@ -703,8 +734,117 @@ function handleExecutionFailure(task, failure) {
   };
 }
 
+function runExecutionScopeSelfCheck(task, actionPlanText) {
+  const approvedRoots = extractApprovedWriteRoots(task);
+  const scopePrompt = buildScopeSelfCheckPrompt(task, actionPlanText, approvedRoots);
+  const checkResult = invokeOllama(scopePrompt);
+  writeArtifact(task, "qwen-scope-self-check-raw.txt", `${checkResult.stdout || ""}\n`);
+  if (checkResult.stderr) {
+    writeArtifact(task, "qwen-scope-self-check-stderr.txt", `${checkResult.stderr}\n`);
+  }
+
+  if (!checkResult.ok) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: "Qwen scope self-check failed before execution.",
+      exactProblem: checkResult.stderr || checkResult.error || "Unknown scope self-check failure.",
+      failedChecks: [`ollama status=${checkResult.status}`],
+      requiredChanges: ["Re-run the execution scope self-check and confirm the approved write boundary."],
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = parseModelJson(checkResult.stdout || "");
+  } catch (error) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_invalid_json",
+      failureSummary: "Qwen scope self-check output was not valid JSON.",
+      exactProblem: sanitizeText(error.message),
+      failedChecks: ["Scope self-check JSON parse failed."],
+      requiredChanges: ["Return valid JSON for the scope self-check only."],
+    };
+  }
+
+  const allowedWritePaths = Array.isArray(parsed.allowed_write_paths)
+    ? parsed.allowed_write_paths.map((entry) => sanitizeText(entry).trim()).filter(Boolean)
+    : [];
+  const gitAllowed = Boolean(parsed.git_allowed);
+  const scopeOk = Boolean(parsed.scope_ok);
+  const reason = sanitizeText(parsed.reason || "").trim();
+
+  if (!scopeOk) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: "Qwen scope self-check did not confirm the approved boundary.",
+      exactProblem: reason || "scope_ok was false.",
+      failedChecks: ["scope_ok = false"],
+      requiredChanges: ["Confirm the approved write scope and git restriction before execution."],
+    };
+  }
+
+  if (gitAllowed) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: "Qwen scope self-check incorrectly allowed git actions.",
+      exactProblem: "git_allowed returned true for a task that does not authorize version-control actions.",
+      failedChecks: ["git_allowed = true"],
+      requiredChanges: ["Acknowledge that git actions are not allowed unless explicitly approved."],
+    };
+  }
+
+  if (approvedRoots.length === 0 && allowedWritePaths.length > 0) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: "Qwen scope self-check claimed write access without an approved path.",
+      exactProblem: `Returned allowed_write_paths=${allowedWritePaths.join(", ")}`,
+      failedChecks: ["allowed_write_paths non-empty without approved write root"],
+      requiredChanges: ["Return no allowed write paths when the task does not authorize file writes."],
+    };
+  }
+
+  const outOfScope = allowedWritePaths.filter(
+    (entry) => !approvedRoots.some((root) => isPathWithinApprovedRoot(entry, root)),
+  );
+  if (outOfScope.length > 0) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: "Qwen scope self-check included paths outside the approved write root.",
+      exactProblem: `Out-of-scope paths: ${outOfScope.join(", ")}`,
+      failedChecks: ["allowed_write_paths exceeded approved root"],
+      requiredChanges: [`Keep all write paths within: ${approvedRoots.join(", ") || "none"}`],
+    };
+  }
+
+  writeArtifact(
+    task,
+    "qwen-scope-self-check.json",
+    `${JSON.stringify({ approved_roots: approvedRoots, allowed_write_paths: allowedWritePaths, git_allowed: gitAllowed, scope_ok: scopeOk }, null, 2)}\n`,
+  );
+  return { ok: true };
+}
+
 function buildExecutionPrompt(task, actionPlanText) {
   const contractText = getQwenExecutorContractText();
+  const priorFailureSummary = sanitizeText(task.last_failure_summary).trim();
+  const priorFailureCode = sanitizeText(task.last_failure_code).trim();
+  const retryContext =
+    task.stage_retry_count > 0 && (priorFailureSummary || priorFailureCode)
+      ? [
+          "",
+          "Previous execution failure to avoid on this retry:",
+          priorFailureCode ? `Failure code: ${priorFailureCode}` : "",
+          priorFailureSummary ? `Failure summary: ${priorFailureSummary}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "";
   return [
     "You are Qwen, the local execution assistant for AI Assistant OS.",
     "Execute the approved action plan and return JSON only.",
@@ -712,6 +852,8 @@ function buildExecutionPrompt(task, actionPlanText) {
     'Return this minimal schema: {"body":{"final_outcome":"..."},"reframe_required":false}',
     "If the task must be reframed, set reframe_required=true and include failure_reason.",
     "Return compact JSON on a single line.",
+    "Before responding, internally verify that your output is valid JSON matching the schema exactly.",
+    "Keep body.final_outcome to one concise sentence no longer than 240 characters.",
     "Inside JSON strings, escape newlines as \\n and tabs as \\t.",
     "If execution is review-only, return a final_outcome that says exactly what review artifact or report was produced.",
     "Unless the approved task explicitly authorizes version-control actions, do not run git init, git add, git commit, git push, create branches, or open pull requests.",
@@ -723,6 +865,26 @@ function buildExecutionPrompt(task, actionPlanText) {
     "",
     "Qwen OS Executor Contract:",
     contractText,
+    retryContext,
+    "",
+    "Approved action plan:",
+    sanitizeText(actionPlanText),
+  ].join("\n");
+}
+
+function buildScopeSelfCheckPrompt(task, actionPlanText, approvedRoots) {
+  return [
+    "You are Qwen, the local execution assistant for AI Assistant OS.",
+    "Before execution, confirm your write boundary and git restriction.",
+    "Return JSON only on a single line with exactly this schema:",
+    '{"scope_ok":true,"allowed_write_paths":["..."],"git_allowed":false,"reason":""}',
+    "Do not add markdown or commentary.",
+    "If no file writes are approved, return an empty allowed_write_paths array.",
+    "git_allowed must be false unless the task explicitly authorizes version-control actions.",
+    "",
+    `Task ID: ${sanitizeText(task.task_id)}`,
+    `Task Title: ${sanitizeText(task.title)}`,
+    `Approved write roots: ${approvedRoots.length ? approvedRoots.join(", ") : "none"}`,
     "",
     "Approved action plan:",
     sanitizeText(actionPlanText),
@@ -772,7 +934,7 @@ function attemptExecutionJsonRepair(task, rawOutput, parseError) {
     "Return valid JSON only on a single line.",
     "Do not add markdown fences or commentary.",
     'Return exactly this schema: {"body":{"final_outcome":"..."},"reframe_required":false}',
-    "Preserve the meaning of the original response, but keep final_outcome concise.",
+    "Preserve the meaning of the original response, but keep final_outcome concise and under 240 characters.",
     "Escape newlines as \\n and tabs as \\t inside strings.",
     "",
     "Malformed output to repair:",
@@ -808,6 +970,64 @@ function attemptExecutionJsonRepair(task, rawOutput, parseError) {
       ],
     };
   }
+}
+
+function extractApprovedWriteRoots(task) {
+  const text = [
+    sanitizeText(task.body.constraints_guardrails),
+    sanitizeText(task.body.full_context),
+    sanitizeText(task.body.proposed_action),
+    sanitizeText(task.body.affected_components),
+    sanitizeText(task.body.machine_task_json),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const explicitRoots = [];
+  const explicitPattern = /All file writes must occur in\s+"([^"]+)"/gi;
+  let explicitMatch;
+  while ((explicitMatch = explicitPattern.exec(text))) {
+    explicitRoots.push(normalizeWindowsPath(explicitMatch[1]));
+  }
+  if (explicitRoots.length > 0) {
+    return Array.from(new Set(explicitRoots.filter(Boolean)));
+  }
+
+  const pathMatches = text.match(/[A-Z]:\\[^\s"';,\n]+/g) || [];
+  const inferredRoots = pathMatches
+    .map((entry) => inferProjectRootFromPath(entry))
+    .filter(Boolean);
+  return Array.from(new Set(inferredRoots));
+}
+
+function inferProjectRootFromPath(filePath) {
+  const normalized = normalizeWindowsPath(filePath);
+  const match = normalized.match(/^([A-Z]:\\[^\\]+)(?:\\.*)?$/i);
+  return match ? match[1] : normalized;
+}
+
+function normalizeWindowsPath(value) {
+  return sanitizeText(value).trim().replace(/\//g, "\\").replace(/\\+$/, "");
+}
+
+function isPathWithinApprovedRoot(candidatePath, approvedRoot) {
+  const candidate = normalizeWindowsPath(candidatePath).toLowerCase();
+  const root = normalizeWindowsPath(approvedRoot).toLowerCase();
+  return candidate === root || candidate.startsWith(`${root}\\`);
+}
+
+function getExecutionRetryLimit(failureCode) {
+  return EXECUTION_RETRY_LIMITS[failureCode] || EXECUTION_RETRY_LIMITS.default;
+}
+
+function getExecutionRetryMeta(task, failureCode) {
+  const retryLimit = getExecutionRetryLimit(failureCode);
+  const retryable = task.stage_retry_count < retryLimit;
+  return {
+    retryLimit,
+    retryable,
+    nextOwner: retryable ? "qwen" : "operator",
+  };
 }
 
 function stripMarkdownCodeFences(input) {
