@@ -266,6 +266,19 @@ function buildDirectAnswer(question) {
     return buildArtifactReply(task, artifactPath, "GPT Plan");
   }
 
+  if (/\bfailure report\b|\bwhat does that report say\b|\bwhy did .*fail\b/i.test(lower)) {
+    const reportPath =
+      extractWindowsPath(text) ||
+      task?.artifacts?.["failure-report.json"] ||
+      "";
+    if (reportPath) {
+      const safePath = resolveSafePath(reportPath);
+      if (safePath && fs.existsSync(safePath)) {
+        return buildFailureReportReply(task, safePath);
+      }
+    }
+  }
+
   if (task && /\b(status|where are we at|what is ai\.?ass doing|latest task)\b/i.test(lower)) {
     return buildTaskSummary(task);
   }
@@ -293,6 +306,55 @@ function buildArtifactReply(task, artifactPath, label) {
     "",
     truncateBlock(readHeadLines(artifactPath, 160), 3200),
   ].join("\n");
+}
+
+function buildFailureReportReply(task, reportPath) {
+  let payload = null;
+  try {
+    payload = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+  } catch (error) {
+    return [
+      task ? `Task: ${sanitizeText(task.title || task.task_id || "unknown")}` : "",
+      `Failure report exists but could not be parsed: ${reportPath}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  const lines = [
+    task ? `Task: ${sanitizeText(task.title || task.task_id || "unknown")}` : "",
+    task
+      ? `Current Task State: ${sanitizeText(task.status || "unknown")} / ${sanitizeText(
+          task.workflow_stage || "unknown",
+        )}`
+      : "",
+    `Failure Report: ${reportPath}`,
+    `Failure Code: ${sanitizeText(payload.failure_code || "unknown")}`,
+    `Failure Summary: ${sanitizeText(payload.failure_summary || "unknown")}`,
+    `Failing Actor: ${sanitizeText(payload.failing_actor || "unknown")}`,
+    `Failing Stage: ${sanitizeText(payload.workflow_stage || "unknown")}`,
+    `Exact Problem: ${sanitizeText(payload.exact_problem || "unknown")}`,
+  ].filter(Boolean);
+
+  if (Array.isArray(payload.failed_checks) && payload.failed_checks.length > 0) {
+    lines.push("Failed Checks:");
+    payload.failed_checks.forEach((check) => lines.push(`- ${sanitizeText(check)}`));
+  }
+
+  if (Array.isArray(payload.required_changes) && payload.required_changes.length > 0) {
+    lines.push("Required Changes:");
+    payload.required_changes.forEach((change) => lines.push(`- ${sanitizeText(change)}`));
+  }
+
+  if (task && sanitizeText(task.stage_retry_count || "").trim()) {
+    lines.push(`Stage Retry Count: ${sanitizeText(String(task.stage_retry_count))}`);
+  }
+
+  if (task && sanitizeText(task.escalation_reason || "").trim()) {
+    lines.push(`Escalation Reason: ${sanitizeText(task.escalation_reason)}`);
+  }
+
+  return lines.join("\n");
 }
 
 function gatherContext(question) {

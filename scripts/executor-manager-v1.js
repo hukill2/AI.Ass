@@ -49,6 +49,7 @@ const EXECUTION_RETRY_LIMITS = Object.freeze({
   execution_scope_self_check_failed: 2,
   execution_runtime_error: 5,
   execution_invalid_json: 5,
+  execution_invalid_file_content: 1,
   execution_missing_outcome: 4,
   verification_missing_artifacts: 2,
   verification_missing_expected_files: 4,
@@ -861,16 +862,16 @@ function executeLocalWritePlan(task, actionPlanText, expectedFiles) {
     }
 
     if (!runResult.ok) {
-      errors.push(
-        `${targetFile}: ${runResult.stderr || runResult.error || `ollama exit ${runResult.status}`}`,
-      );
+      const classified = classifyModelRuntimeFailure(runResult, targetFile);
+      errors.push(classified.exactProblem);
       return {
         ok: false,
-        failureCode: "execution_runtime_error",
-        failureSummary: "Model execution failed while generating file contents.",
+        failureCode: classified.failureCode,
+        failureSummary: classified.failureSummary,
         exactProblem: errors.join("\n"),
-        failedChecks: errors.map((entry) => `file_generation_failed(${entry})`),
-        requiredChanges: ["Retry the local write execution once the model runtime is healthy."],
+        failedChecks: classified.failedChecks,
+        requiredChanges: classified.requiredChanges,
+        retryable: classified.retryable,
         rawSummary: `File generation failed for ${targetFile}.`,
         model: runResult.model || "",
         fallbackUsed: Boolean(runResult.fallbackUsed),
@@ -1257,7 +1258,7 @@ function shouldHandOffToClaude(task, failure, retryLimit) {
   if (getExecutionProvider(task) === "claude") {
     return false;
   }
-  if (!failure || failure.retryable === false) {
+  if (!failure) {
     return false;
   }
   if (!isClaudeEligibleFailureCode(failure.failureCode)) {
@@ -1293,6 +1294,35 @@ function isClaudeEligibleFailureCode(failureCode) {
     "verification_review_only_outcome",
     "verification_insufficient_evidence",
   ].includes(sanitizeText(failureCode).trim());
+}
+
+function classifyModelRuntimeFailure(runResult, targetFile) {
+  const model = sanitizeText(runResult && runResult.model).trim();
+  const status = Number(runResult && runResult.status) || 0;
+  const detail = sanitizeText((runResult && (runResult.stderr || runResult.error)) || "");
+  const exactProblem = `${targetFile}: ${detail || `model: ${model || "unknown"}`}`;
+
+  if (model && /^claude/i.test(model) && status >= 400 && status < 500) {
+    return {
+      failureCode: "execution_provider_config_error",
+      failureSummary: "Claude execution fallback is misconfigured or unavailable for the selected model.",
+      exactProblem,
+      failedChecks: [`claude_provider_request_failed(${status})`, model ? `model=${model}` : ""].filter(Boolean),
+      requiredChanges: [
+        "Set CLAUDE_EXECUTION_MODEL to a Claude model your Anthropic API key can access, then retry execution.",
+      ],
+      retryable: false,
+    };
+  }
+
+  return {
+    failureCode: "execution_runtime_error",
+    failureSummary: "Model execution failed while generating file contents.",
+    exactProblem,
+    failedChecks: [`file_generation_failed(${exactProblem})`],
+    requiredChanges: ["Retry the local write execution once the model runtime is healthy."],
+    retryable: true,
+  };
 }
 
 function resolveInitialGitCommitBlocker(task, failure) {
@@ -1733,7 +1763,7 @@ function canUseClaudeExecution() {
 }
 
 function getClaudeExecutionModel() {
-  return sanitizeText(process.env.CLAUDE_EXECUTION_MODEL || "claude-3-5-haiku-latest").trim();
+  return sanitizeText(process.env.CLAUDE_EXECUTION_MODEL || "claude-haiku-4-5-20251001").trim();
 }
 
 function getExecutionProvider(task) {
@@ -2312,15 +2342,16 @@ function getFallbackFileRequirements(targetFile) {
 
 function prepareGeneratedFileContent(targetFile, rawOutput) {
   const rawText = sanitizeText(rawOutput).trim();
+  const cleaned = extractPreferredContentBlock(rawText);
   const suspicious = detectModelFileOutputIssues(targetFile, rawText);
-  if (suspicious.length > 0) {
+  const salvageable = canSalvageGeneratedFileContent(targetFile, rawText, cleaned, suspicious);
+  if (suspicious.length > 0 && !salvageable) {
     return {
       ok: false,
       exactProblem: `Model returned non-file content: ${suspicious.join("; ")}`,
       failedChecks: suspicious.map((issue) => `${issue}(${targetFile}) = true`),
     };
   }
-  const cleaned = extractPreferredContentBlock(rawText);
   if (!cleaned) {
     return {
       ok: false,
@@ -2351,6 +2382,45 @@ function prepareGeneratedFileContent(targetFile, rawOutput) {
   }
 
   return { ok: true, content: `${cleaned.replace(/\s+$/g, "")}\n` };
+}
+
+function canSalvageGeneratedFileContent(targetFile, rawText, cleaned, suspiciousIssues) {
+  if (!cleaned) {
+    return false;
+  }
+
+  const issues = Array.isArray(suspiciousIssues) ? suspiciousIssues.filter(Boolean) : [];
+  if (!issues.length) {
+    return true;
+  }
+
+  const salvageableIssues = new Set(["extra_text_outside_code_block", "commentary_in_code_file"]);
+  if (issues.some((issue) => !salvageableIssues.has(issue))) {
+    return false;
+  }
+
+  if (!/```/.test(String(rawText || ""))) {
+    return false;
+  }
+
+  if (/^here('| i)?s\b|^i (updated|created|wrote)\b|^it seems like\b|^however\b|^based on your|^i('| a)m sorry/i.test(cleaned)) {
+    return false;
+  }
+
+  const extension = path.extname(targetFile).toLowerCase();
+  if ([".ts", ".tsx", ".js", ".jsx"].includes(extension)) {
+    return /(?:^|\n)\s*(import|export|type |interface |const |function |class )\b|<[A-Za-z][\s\S]*?>/.test(
+      cleaned,
+    );
+  }
+  if (extension === ".css") {
+    return /[.#:@A-Za-z0-9_-]+\s*\{[\s\S]*\}/.test(cleaned);
+  }
+  if (extension === ".json") {
+    return /^[\[{]/.test(cleaned);
+  }
+
+  return true;
 }
 
 function detectModelFileOutputIssues(targetFile, rawText) {
