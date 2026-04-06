@@ -7,7 +7,7 @@ const path = require("path");
 const {
   STATUS,
   STAGE,
-  getSectionDefinitions,
+  getTaskArtifactDir,
   normalizeTask,
   sanitizeText,
   writeJsonFile,
@@ -17,6 +17,7 @@ const {
 const ROOT = path.resolve(__dirname, "..");
 const QUEUE_DIR = path.join(ROOT, "runtime", "queue");
 const COMPLETED_DIR = path.join(ROOT, "runtime", "completed");
+const EXECUTOR_LOG_PATH = path.join(ROOT, "runtime", "logs", "executor-manager-v1.log");
 
 const notion = new Client({ auth: process.env.NOTION_API_KEY, notionVersion: "2026-03-11" });
 
@@ -111,6 +112,8 @@ function shouldSyncPageBody(task) {
 function buildPropertiesPayload(task, properties) {
   const updates = {};
   const titlePropertyName = properties.Title ? "Title" : properties.Name ? "Name" : null;
+  const snapshot = buildOperatorSnapshot(task);
+  const pointers = buildArtifactPointers(task);
 
   if (titlePropertyName) {
     updates[titlePropertyName] = {
@@ -139,6 +142,15 @@ function buildPropertiesPayload(task, properties) {
   assignProperty(updates, properties, "Escalation Reason", task.escalation_reason);
   assignProperty(updates, properties, "Current Prompt Template", task.current_prompt_template);
   assignProperty(updates, properties, "Approval Gate", task.approval_gate);
+  assignProperty(updates, properties, "Current State", snapshot.currentState);
+  assignProperty(updates, properties, "Operator Snapshot", snapshot.operatorSnapshot);
+  assignProperty(updates, properties, "Latest Log Path", pointers.latestLogPath);
+  assignProperty(updates, properties, "Latest Artifact Dir", pointers.latestArtifactDir);
+  assignProperty(updates, properties, "Latest Verification Report", pointers.latestVerificationReport);
+  assignProperty(updates, properties, "Latest Failure Report", pointers.latestFailureReport);
+  assignProperty(updates, properties, "Project Root", pointers.projectRoot);
+  assignProperty(updates, properties, "Completion Summary", snapshot.completionSummary);
+  assignProperty(updates, properties, "Current Executor", snapshot.currentExecutor);
 
   return updates;
 }
@@ -157,14 +169,10 @@ function assignProperty(target, properties, name, value) {
       target[name] = { rich_text: buildRichTextArray(clean) };
       return;
     case "select":
-      if (clean) {
-        target[name] = { select: { name: clean } };
-      }
+      target[name] = clean ? { select: { name: clean } } : { select: null };
       return;
     case "status":
-      if (clean) {
-        target[name] = { status: { name: clean } };
-      }
+      target[name] = clean ? { status: { name: clean } } : { status: null };
       return;
     case "checkbox":
       target[name] = { checkbox: Boolean(value) };
@@ -182,20 +190,21 @@ function assignProperty(target, properties, name, value) {
   }
 }
 
-function buildRichTextArray(text) {
-  if (!text) {
-    return [];
-  }
-  return splitText(text, 1800).map((chunk) => ({
-    type: "text",
-    text: { content: chunk },
-  }));
-}
-
 async function replacePageBody(pageId, task) {
   const existingBlocks = await listBlocks(pageId);
   for (const block of existingBlocks) {
-    await notion.blocks.delete({ block_id: block.id });
+    if (block.archived || block.in_trash) {
+      continue;
+    }
+    try {
+      await notion.blocks.delete({ block_id: block.id });
+    } catch (error) {
+      const message = sanitizeText(error && error.message);
+      if (/archived/i.test(message) || /can't edit block that is archived/i.test(message)) {
+        continue;
+      }
+      throw error;
+    }
   }
 
   const blocks = buildPageBlocks(task);
@@ -224,61 +233,238 @@ async function listBlocks(blockId) {
 
 function buildPageBlocks(task) {
   const blocks = [];
-  for (const section of getRenderableSections(task)) {
-    const content = sanitizeText(task.body[section.key]).trim();
+  for (const section of buildCompactPageSections(task)) {
+    const content = sanitizeText(section.content).trim();
     if (!content) {
       continue;
     }
     blocks.push(headingBlock(section.heading));
-    const renderedBlocks = renderSectionContent(section.key, content);
+    const renderedBlocks = buildParagraphBlocks(content);
     blocks.push(...renderedBlocks);
   }
   return blocks;
 }
 
-function getRenderableSections(task) {
-  const sections = getSectionDefinitions();
-  if (!isCompletedPlanningTask(task)) {
-    return sections;
-  }
-
-  const hidden = new Set([
-    "machine_task_json",
-    "prompt_template_selection",
-    "prompt_package_for_approval",
-    "librarian_validation_notes",
-    "qwen_action_plan_for_approval",
-  ]);
-
-  return sections.filter((section) => !hidden.has(section.key));
-}
-
-function isCompletedPlanningTask(task) {
-  return (
-    sanitizeText(task.status).trim() === STATUS.COMPLETED &&
-    (
-      task.planning_only === true ||
-      sanitizeText(task.current_prompt_template).trim() === "Project intake / planning prompt"
-    )
-  );
-}
-
-function renderSectionContent(sectionKey, content) {
-  if (["machine_task_json", "failure_report"].includes(sectionKey)) {
-    return buildCodeBlocks(content, sectionKey === "machine_task_json" ? "json" : "plain text");
-  }
-  if (
-    ["prompt_package_for_approval", "gpt_plan", "qwen_action_plan_for_approval", "attempt_history", "librarian_validation_notes", "constraints_guardrails", "escalation_notes"].includes(
-      sectionKey,
-    )
-  ) {
-    return buildParagraphBlocks(content);
-  }
-  return buildParagraphBlocks(content);
-}
-
 function buildParagraphBlocks(content) {
   return splitStructuredText(content);
+}
+
+function buildCompactPageSections(task) {
+  const snapshot = buildOperatorSnapshot(task);
+  const pointers = buildArtifactPointers(task);
+  const sections = [
+    { heading: "Current State", content: snapshot.currentState },
+    { heading: "What Changed", content: snapshot.whatChanged },
+    { heading: "What Failed", content: snapshot.whatFailed },
+    { heading: "What Happens Next", content: snapshot.whatHappensNext },
+    { heading: "What I Need From You", content: snapshot.whatINeedFromYou },
+  ];
+  const artifactIndex = [
+    pointers.projectRoot ? `- Project Root: ${pointers.projectRoot}` : "",
+    pointers.latestLogPath ? `- Latest Log Path: ${pointers.latestLogPath}` : "",
+    pointers.latestArtifactDir ? `- Latest Artifact Dir: ${pointers.latestArtifactDir}` : "",
+    pointers.latestVerificationReport
+      ? `- Latest Verification Report: ${pointers.latestVerificationReport}`
+      : "",
+    pointers.latestFailureReport ? `- Latest Failure Report: ${pointers.latestFailureReport}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (artifactIndex) {
+    sections.push({ heading: "Artifact Index", content: artifactIndex });
+  }
+
+  return sections.filter((section) => sanitizeText(section.content).trim());
+}
+
+function buildOperatorSnapshot(task) {
+  const currentState = trimForNotion(buildCurrentState(task), 500);
+  const whatChanged = trimForNotion(buildWhatChanged(task), 700);
+  const whatFailed = trimForNotion(buildWhatFailed(task), 500);
+  const whatHappensNext = trimForNotion(buildWhatHappensNext(task), 500);
+  const whatINeedFromYou = trimForNotion(buildWhatINeedFromYou(task), 500);
+  const completionSummary =
+    sanitizeText(task.status).trim() === STATUS.COMPLETED
+      ? trimForNotion(sanitizeText(task.body.final_outcome).trim(), 500)
+      : "";
+  const currentExecutor = trimForNotion(getCurrentExecutor(task), 120);
+  const operatorSnapshot = trimForNotion(
+    [currentState, whatFailed, whatHappensNext, whatINeedFromYou].filter(Boolean).join("\n"),
+    600,
+  );
+
+  return {
+    currentState,
+    whatChanged,
+    whatFailed,
+    whatHappensNext,
+    whatINeedFromYou,
+    operatorSnapshot,
+    completionSummary,
+    currentExecutor,
+  };
+}
+
+function buildCurrentState(task) {
+  const status = sanitizeText(task.status).trim() || STATUS.DRAFT;
+  const stage = sanitizeText(task.workflow_stage).trim() || STAGE.TASK_INTAKE;
+  const actor = getCurrentExecutor(task);
+  const actorPart = actor ? ` Executor: ${actor}.` : "";
+  if (status === STATUS.COMPLETED) {
+    const outcome = sanitizeText(task.body.final_outcome).trim();
+    return `${status} / ${stage}.${actorPart}${outcome ? ` ${outcome}` : ""}`.trim();
+  }
+  if ([STATUS.ESCALATED, STATUS.FAILED].includes(status)) {
+    return `${status} / ${stage}.${actorPart} ${sanitizeText(task.last_failure_summary).trim() || "Operator review is required."}`.trim();
+  }
+  if ([STATUS.PENDING_REVIEW, STATUS.APPROVED, STATUS.PROCESSING, STATUS.RETRYING].includes(status)) {
+    return `${status} / ${stage}.${actorPart}`.trim();
+  }
+  return `${status} / ${stage}.${actorPart}`.trim();
+}
+
+function buildWhatChanged(task) {
+  const history = extractAttemptHistoryLines(task);
+  if (history.length === 0) {
+    const decision = sanitizeText(task.decision).trim();
+    if (decision) {
+      return `Latest operator decision: ${decision}.`;
+    }
+    return "No execution updates recorded yet.";
+  }
+  return history.slice(-3).map((line) => `- ${line}`).join("\n");
+}
+
+function buildWhatFailed(task) {
+  const code = sanitizeText(task.last_failure_code).trim();
+  const summary = sanitizeText(task.last_failure_summary).trim();
+  const escalation = sanitizeText(task.escalation_reason).trim();
+  if (!code && !summary && !escalation) {
+    return sanitizeText(task.status).trim() === STATUS.COMPLETED
+      ? "No active failure."
+      : "No active failure recorded.";
+  }
+  return [code ? `Code: ${code}` : "", summary, escalation && escalation !== summary ? escalation : ""]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildWhatHappensNext(task) {
+  const status = sanitizeText(task.status).trim();
+  const stage = sanitizeText(task.workflow_stage).trim();
+  if (status === STATUS.PENDING_REVIEW) {
+    return "Waiting for the current review gate to move forward.";
+  }
+  if (status === STATUS.ESCALATED || stage === STAGE.ESCALATED_TO_OPERATOR) {
+    return "The manager is paused until operator review resumes the task.";
+  }
+  if (status === STATUS.PROCESSING || status === STATUS.RETRYING) {
+    return "The manager continues the current stage and will either verify success or record the next concrete blocker.";
+  }
+  if (status === STATUS.COMPLETED) {
+    return "No further action is scheduled for this task unless it is reset or a downstream task is generated.";
+  }
+  if (status === STATUS.DRAFT || stage === STAGE.TASK_INTAKE) {
+    return "The manager will assemble the next prompt package when the task is picked up.";
+  }
+  return "The manager will resume from the current workflow stage on the next cycle.";
+}
+
+function buildWhatINeedFromYou(task) {
+  const status = sanitizeText(task.status).trim();
+  const stage = sanitizeText(task.workflow_stage).trim();
+  if (status === STATUS.PENDING_REVIEW) {
+    return "Review the task and set the Decision field.";
+  }
+  if (status === STATUS.ESCALATED || stage === STAGE.ESCALATED_TO_OPERATOR) {
+    return "Review the failure summary, then approve, modify, or deny the task.";
+  }
+  if (status === STATUS.COMPLETED) {
+    return "Nothing unless you want to reopen the task or inspect the artifacts.";
+  }
+  if (status === STATUS.DRAFT) {
+    return "Nothing unless the task needs edits before the manager assembles the prompt package.";
+  }
+  return "Nothing unless the task stalls or the failure summary changes.";
+}
+
+function buildArtifactPointers(task) {
+  const artifactDir = getTaskArtifactDir(task);
+  const latestArtifactDir = fs.existsSync(artifactDir) ? artifactDir : "";
+  const latestVerificationReport = resolveArtifactPath(task, "verification-report.json");
+  const latestFailureReport =
+    resolveArtifactPath(task, "failure-report.json") || resolveArtifactPath(task, "local-write-verification.stderr.txt");
+  return {
+    latestLogPath: EXECUTOR_LOG_PATH,
+    latestArtifactDir,
+    latestVerificationReport,
+    latestFailureReport,
+    projectRoot: inferProjectRoot(task),
+  };
+}
+
+function resolveArtifactPath(task, fileName) {
+  if (task.artifacts && task.artifacts[fileName] && fs.existsSync(task.artifacts[fileName])) {
+    return task.artifacts[fileName];
+  }
+  const candidate = path.join(getTaskArtifactDir(task), fileName);
+  return fs.existsSync(candidate) ? candidate : "";
+}
+
+function inferProjectRoot(task) {
+  const candidates = [
+    sanitizeText(task.project_root).trim(),
+    sanitizeText(task.metadata && task.metadata.project_root).trim(),
+    sanitizeText(task.body.final_outcome).trim(),
+    sanitizeText(task.operator_notes || task.body.operator_notes).trim(),
+    sanitizeText(task.trigger_reason).trim(),
+  ]
+    .flatMap(extractWindowsPaths)
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    if (path.resolve(candidate).startsWith(ROOT)) {
+      continue;
+    }
+    return candidate;
+  }
+
+  return "";
+}
+
+function extractWindowsPaths(text) {
+  return (sanitizeText(text).match(/[A-Za-z]:\\[^\n\r"]+/g) || []).map((entry) => entry.trim());
+}
+
+function getCurrentExecutor(task) {
+  const provider = sanitizeText(task.metadata && task.metadata.execution_provider).trim();
+  if (provider) {
+    return provider;
+  }
+  const actor = sanitizeText(task.last_failure_actor).trim();
+  if (actor) {
+    return actor;
+  }
+  return "";
+}
+
+function extractAttemptHistoryLines(task) {
+  return sanitizeText(task.body.attempt_history)
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^- \[[^\]]+\]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function trimForNotion(text, maxLength) {
+  const clean = sanitizeText(text).trim();
+  if (clean.length <= maxLength) {
+    return clean;
+  }
+  return `${clean.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
 function splitStructuredText(content) {
@@ -342,12 +528,7 @@ function paragraphBlock(text) {
     object: "block",
     type: "paragraph",
     paragraph: {
-      rich_text: [
-        {
-          type: "text",
-          text: { content: sanitizeText(text) },
-        },
-      ],
+      rich_text: buildRichTextArray(text),
     },
   };
 }
@@ -357,12 +538,7 @@ function bulletedListItemBlock(text) {
     object: "block",
     type: "bulleted_list_item",
     bulleted_list_item: {
-      rich_text: [
-        {
-          type: "text",
-          text: { content: sanitizeText(text) },
-        },
-      ],
+      rich_text: buildRichTextArray(text),
     },
   };
 }
@@ -372,12 +548,7 @@ function numberedListItemBlock(text) {
     object: "block",
     type: "numbered_list_item",
     numbered_list_item: {
-      rich_text: [
-        {
-          type: "text",
-          text: { content: sanitizeText(text) },
-        },
-      ],
+      rich_text: buildRichTextArray(text),
     },
   };
 }
@@ -405,6 +576,16 @@ function splitText(text, maxLength) {
     cursor += maxLength;
   }
   return chunks;
+}
+
+function buildRichTextArray(text) {
+  if (!text) {
+    return [];
+  }
+  return splitText(text, 1800).map((chunk) => ({
+    type: "text",
+    text: { content: chunk },
+  }));
 }
 
 function chunkArray(items, size) {

@@ -1,12 +1,23 @@
 #!/usr/bin/env node
 
 const dotenvx = require("@dotenvx/dotenvx");
+const fs = require("fs");
+const path = require("path");
 const {
   sanitizeText,
   STATUS,
 } = require("./reviews-approvals-workflow-v1");
 
 dotenvx.config({ quiet: true });
+
+const ROOT = path.resolve(__dirname, "..");
+const TELEGRAM_NOTIFY_STATE_PATH = path.join(
+  ROOT,
+  "runtime",
+  "logs",
+  "telegram-notify-state.v1.json",
+);
+const NOTIFY_THROTTLE_MS = 5 * 60 * 1000;
 
 async function sendTelegramNotification(task, reasonOverride = "") {
   const token = sanitizeText(
@@ -29,6 +40,11 @@ async function sendTelegramNotification(task, reasonOverride = "") {
     sanitizeText(reasonOverride).trim() ||
     sanitizeText(task.last_failure_summary).trim() ||
     defaultReasonForTask(task);
+  const notificationKey = buildNotificationKey(task, reason);
+
+  if (shouldThrottleNotification(notificationKey)) {
+    return { sent: false, skipped: true, reason: "Notification throttled." };
+  }
 
   const message = [
     `Task: ${sanitizeText(task.title || task.task_id)}`,
@@ -58,6 +74,8 @@ async function sendTelegramNotification(task, reasonOverride = "") {
     throw new Error(`Telegram notification failed: ${response.status} ${errorText}`);
   }
 
+  recordNotification(notificationKey);
+
   return { sent: true, skipped: false, reason };
 }
 
@@ -69,6 +87,42 @@ function defaultReasonForTask(task) {
     return "Operator attention required.";
   }
   return "Workflow update requires attention.";
+}
+
+function buildNotificationKey(task, reason) {
+  return [
+    sanitizeText(task.task_id),
+    sanitizeText(task.status),
+    sanitizeText(task.workflow_stage),
+    sanitizeText(reason),
+  ].join("|");
+}
+
+function shouldThrottleNotification(key) {
+  const state = readNotifyState();
+  const entry = state[key];
+  if (!entry || !entry.sent_at) {
+    return false;
+  }
+  return Date.now() - new Date(entry.sent_at).getTime() < NOTIFY_THROTTLE_MS;
+}
+
+function recordNotification(key) {
+  const state = readNotifyState();
+  state[key] = { sent_at: new Date().toISOString() };
+  fs.mkdirSync(path.dirname(TELEGRAM_NOTIFY_STATE_PATH), { recursive: true });
+  fs.writeFileSync(TELEGRAM_NOTIFY_STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+}
+
+function readNotifyState() {
+  if (!fs.existsSync(TELEGRAM_NOTIFY_STATE_PATH)) {
+    return {};
+  }
+  try {
+    return JSON.parse(fs.readFileSync(TELEGRAM_NOTIFY_STATE_PATH, "utf8"));
+  } catch (_error) {
+    return {};
+  }
 }
 
 async function main() {

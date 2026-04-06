@@ -424,11 +424,17 @@ function renderBulletList(items) {
 }
 
 function buildPromptPackage(task, templateBody, machineTask) {
+  const revisedInstructions = sanitizeText(
+    task.revised_instructions || task.body.revised_instructions || "",
+  ).trim();
   return [
     `Template: ${task.current_prompt_template || DEFAULT_PROMPT_TEMPLATE}`,
     "",
     "Task Summary:",
     sanitizeText(task.body.summary || task.title || ""),
+    revisedInstructions
+      ? ["", "Critical Operator Overrides:", revisedInstructions].join("\n")
+      : "",
     "",
     "Constraints / Guardrails:",
     renderBulletList([...deriveConstraints(task), ...deriveGuardrails(task)]),

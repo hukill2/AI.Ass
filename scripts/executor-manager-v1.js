@@ -42,15 +42,19 @@ const GENERATE_EXECUTION_ORDERS_SCRIPT = path.join(
 );
 const POLL_MS = 10_000;
 const OLLAMA_TIMEOUT_MS = 240_000;
+const CLAUDE_TIMEOUT_MS = 300_000;
+const LOCAL_WRITE_TIMEOUT_MS = 300_000;
 const EXECUTION_RETRY_LIMITS = Object.freeze({
-  execution_scope_self_check_invalid_json: 2,
+  execution_scope_self_check_invalid_json: 3,
   execution_scope_self_check_failed: 2,
-  execution_runtime_error: 3,
-  execution_invalid_json: 3,
-  execution_missing_outcome: 3,
+  execution_runtime_error: 5,
+  execution_invalid_json: 5,
+  execution_missing_outcome: 4,
   verification_missing_artifacts: 2,
-  verification_missing_expected_files: 2,
+  verification_missing_expected_files: 4,
   verification_missing_outcome: 2,
+  verification_review_only_outcome: 3,
+  verification_insufficient_evidence: 3,
   default: 1,
 });
 const runOnce = process.argv.includes("--once");
@@ -122,6 +126,17 @@ async function processTaskFile(taskPath) {
     }
   }
 
+  if (sanitizeText(task.status).trim() === STATUS.COMPLETED && !isValidCompletedTaskState(task)) {
+    repairInvalidCompletedTaskState(task);
+    touched = true;
+    writeJsonFile(taskPath, task);
+
+    if (task.notion_page_id) {
+      await syncTaskToNotion(task);
+      writeJsonFile(taskPath, task);
+    }
+  }
+
   if (!touched) {
     log(`No workflow action required for ${taskLabel}.`);
   }
@@ -171,16 +186,19 @@ async function advanceTask(task, taskPath) {
     if (decision === "approve") {
       task.status = STATUS.APPROVED;
       task.sync_status = "Synced";
+      task.decision = null;
       return { changed: true, stop: false };
     }
     if (decision === "deny") {
       task.status = STATUS.DENIED;
       task.sync_status = "Not Synced";
+      task.decision = null;
       return { changed: true, stop: true, notifyOperator: true, notifyReason: "Task denied." };
     }
     if (decision === "modify") {
       task.status = STATUS.NEEDS_EDIT;
       task.sync_status = "Synced";
+      task.decision = null;
       appendAttemptHistory(task, "Operator requested modifications during review.");
       return { changed: true, stop: false };
     }
@@ -243,6 +261,7 @@ function handleOperatorEscalation(task) {
     task.sync_status = "Synced";
     task.status = resume.status;
     task.workflow_stage = resume.workflowStage;
+    task.decision = null;
     appendAttemptHistory(task, "Operator approved after escalation.");
     return { changed: true, stop: false };
   }
@@ -255,6 +274,7 @@ function handleOperatorEscalation(task) {
       task.approval_gate === APPROVAL_GATE.ACTION_PLAN
         ? STAGE.QWEN_ACTION_PLAN_DRAFT
         : STAGE.PROMPT_PACKAGE_ASSEMBLY;
+    task.decision = null;
     appendAttemptHistory(task, "Operator requested edits after escalation.");
     return { changed: true, stop: false };
   }
@@ -262,6 +282,7 @@ function handleOperatorEscalation(task) {
   if (decision === "deny") {
     task.status = STATUS.DENIED;
     task.sync_status = "Not Synced";
+    task.decision = null;
     appendAttemptHistory(task, "Operator denied the task after escalation.");
     return {
       changed: true,
@@ -578,8 +599,80 @@ async function executeApprovedActionPlan(task) {
       nextOwner: retryMeta.nextOwner,
     });
   }
+  const expectedFiles = extractExpectedFiles(task);
+  if (expectedFiles.length > 0) {
+    const writeResult = executeLocalWritePlan(task, actionPlanText, expectedFiles);
+    const executionActor = getExecutionActorName(writeResult.model);
+    writeArtifact(task, "qwen-execution-raw.txt", `${writeResult.rawSummary || ""}\n`);
+    if (writeResult.stderr) {
+      writeArtifact(task, "qwen-execution-stderr.txt", `${writeResult.stderr}\n`);
+    }
+    writeArtifact(
+      task,
+      "qwen-execution-model.json",
+      `${JSON.stringify(
+        {
+          selected_model: writeResult.model || "",
+          fallback_used: Boolean(writeResult.fallbackUsed),
+          attempts: writeResult.attempts || [],
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    if (!writeResult.ok) {
+      const retryMeta = getExecutionRetryMeta(task, writeResult.failureCode || "execution_runtime_error");
+      return handleExecutionFailure(task, {
+        failingActor: executionActor,
+        failureCode: writeResult.failureCode || "execution_runtime_error",
+        failureSummary: writeResult.failureSummary || "Local write execution failed.",
+        exactProblem: writeResult.exactProblem || "Unknown local write failure.",
+        failedChecks: writeResult.failedChecks || ["Local write execution failed."],
+        requiredChanges: writeResult.requiredChanges || [
+          "Review the local write execution artifacts and retry the execution stage.",
+        ],
+        retryable: retryMeta.retryable,
+        retryLimit: retryMeta.retryLimit,
+        nextOwner: retryMeta.nextOwner,
+      });
+    }
+
+    task.body.final_outcome = sanitizeText(writeResult.finalOutcome).trim();
+    task.status = STATUS.EXECUTED;
+    task.workflow_stage = STAGE.POST_EXECUTION_VERIFICATION;
+    task.sync_status = "Synced";
+    appendAttemptHistory(task, `${executionActor} execution completed; running verification.`);
+
+    const verification = verifyExecution(task);
+    if (!verification.ok) {
+      const retryMeta = getExecutionRetryMeta(task, verification.failureCode);
+      return handleExecutionFailure(task, {
+        workflowStage: STAGE.POST_EXECUTION_VERIFICATION,
+        failingActor: "Verifier",
+        retryStage: STAGE.QWEN_EXECUTION,
+        failureCode: verification.failureCode,
+        failureSummary: verification.failureSummary,
+        exactProblem: verification.exactProblem,
+        failedChecks: verification.failedChecks,
+        requiredChanges: verification.requiredChanges,
+        retryable: retryMeta.retryable,
+        retryLimit: retryMeta.retryLimit,
+        nextOwner: retryMeta.nextOwner,
+      });
+    }
+
+    clearFailureState(task);
+    task.status = STATUS.COMPLETED;
+    task.workflow_stage = STAGE.COMPLETED;
+    task.sync_status = "Synced";
+    appendAttemptHistory(task, `Verification passed: ${verification.command}`);
+    return { changed: true, stop: true };
+  }
+
   const prompt = buildExecutionPrompt(task, actionPlanText);
-  const runResult = invokeOllama(prompt);
+  const runResult = invokeExecutionModel(task, prompt);
+  const executionActor = getExecutionActorName(runResult.model);
   writeArtifact(task, "qwen-execution-raw.txt", `${runResult.stdout || ""}\n`);
   if (runResult.stderr) {
     writeArtifact(task, "qwen-execution-stderr.txt", `${runResult.stderr}\n`);
@@ -602,7 +695,8 @@ async function executeApprovedActionPlan(task) {
     const retryMeta = getExecutionRetryMeta(task, "execution_runtime_error");
     return handleExecutionFailure(task, {
       failureCode: "execution_runtime_error",
-      failureSummary: "Qwen execution failed before producing a usable result.",
+      failingActor: executionActor,
+      failureSummary: `${executionActor} execution failed before producing a usable result.`,
       exactProblem: runResult.stderr || runResult.error || "Unknown execution failure.",
       failedChecks: [
         `ollama status=${runResult.status}`,
@@ -626,7 +720,8 @@ async function executeApprovedActionPlan(task) {
       const retryMeta = getExecutionRetryMeta(task, "execution_invalid_json");
       return handleExecutionFailure(task, {
         failureCode: "execution_invalid_json",
-        failureSummary: "Qwen execution output was not valid JSON.",
+        failingActor: executionActor,
+        failureSummary: `${executionActor} execution output was not valid JSON.`,
         exactProblem: sanitizeText(repaired.exactProblem || error.message),
         failedChecks: repaired.failedChecks || ["Execution patch JSON parse failed."],
         requiredChanges: ["Regenerate the execution patch as valid JSON only."],
@@ -657,7 +752,8 @@ async function executeApprovedActionPlan(task) {
     const retryMeta = getExecutionRetryMeta(task, "execution_missing_outcome");
     return handleExecutionFailure(task, {
       failureCode: "execution_missing_outcome",
-      failureSummary: "Qwen execution did not provide a final outcome summary.",
+      failingActor: executionActor,
+      failureSummary: `${executionActor} execution did not provide a final outcome summary.`,
       exactProblem: "The execution patch is missing body.final_outcome.",
       failedChecks: ["body.final_outcome missing from execution patch."],
       requiredChanges: ["Return a concrete final outcome summary from execution."],
@@ -671,7 +767,7 @@ async function executeApprovedActionPlan(task) {
   task.status = STATUS.EXECUTED;
   task.workflow_stage = STAGE.POST_EXECUTION_VERIFICATION;
   task.sync_status = "Synced";
-  appendAttemptHistory(task, "Qwen execution completed; running verification.");
+  appendAttemptHistory(task, `${executionActor} execution completed; running verification.`);
 
   const verification = verifyExecution(task);
   if (!verification.ok) {
@@ -700,13 +796,237 @@ async function executeApprovedActionPlan(task) {
   return { changed: true, stop: true };
 }
 
+function executeLocalWritePlan(task, actionPlanText, expectedFiles) {
+  const approvedRoots = extractApprovedWriteRoots(task);
+  const invalidTargets = expectedFiles.filter(
+    (filePath) => !approvedRoots.some((root) => isPathWithinApprovedRoot(filePath, root)),
+  );
+  if (invalidTargets.length > 0) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: "Expected file paths are outside the approved write roots.",
+      exactProblem: `Out-of-scope file targets: ${invalidTargets.join(", ")}`,
+      failedChecks: invalidTargets.map((filePath) => `within_approved_root(${filePath}) = false`),
+      requiredChanges: ["Update the approved write roots or narrow the expected file list."],
+      rawSummary: `Blocked local write plan because targets were outside scope: ${invalidTargets.join(", ")}`,
+      model: "",
+      fallbackUsed: false,
+      attempts: [],
+    };
+  }
+
+  const rootReadiness = ensureApprovedRootsReady(task, approvedRoots, expectedFiles);
+  if (!rootReadiness.ok) {
+    return {
+      ok: false,
+      failureCode: "execution_scope_self_check_failed",
+      failureSummary: rootReadiness.failureSummary,
+      exactProblem: rootReadiness.exactProblem,
+      failedChecks: rootReadiness.failedChecks,
+      requiredChanges: rootReadiness.requiredChanges,
+      rawSummary: rootReadiness.exactProblem,
+      model: "",
+      fallbackUsed: false,
+      attempts: [],
+    };
+  }
+
+  const writeAttempts = [];
+  const writtenFiles = [];
+  const errors = [];
+  let selectedModel = "";
+  let fallbackUsed = false;
+
+  for (const targetFile of expectedFiles) {
+    const filePrompt = buildFileGenerationPrompt(task, actionPlanText, targetFile, expectedFiles);
+    const runResult = invokeExecutionModel(task, filePrompt);
+    selectedModel = runResult.model || selectedModel;
+    fallbackUsed = fallbackUsed || Boolean(runResult.fallbackUsed);
+    writeAttempts.push(...(runResult.attempts || []));
+    if (!(runResult.attempts || []).length) {
+      writeAttempts.push(summarizeOllamaAttempt(runResult));
+    }
+    writeArtifact(
+      task,
+      `qwen-file-${sanitizeFileName(path.basename(targetFile))}.raw.txt`,
+      `${runResult.stdout || ""}\n`,
+    );
+    if (runResult.stderr) {
+      writeArtifact(
+        task,
+        `qwen-file-${sanitizeFileName(path.basename(targetFile))}.stderr.txt`,
+        `${runResult.stderr}\n`,
+      );
+    }
+
+    if (!runResult.ok) {
+      errors.push(
+        `${targetFile}: ${runResult.stderr || runResult.error || `ollama exit ${runResult.status}`}`,
+      );
+      return {
+        ok: false,
+        failureCode: "execution_runtime_error",
+        failureSummary: "Model execution failed while generating file contents.",
+        exactProblem: errors.join("\n"),
+        failedChecks: errors.map((entry) => `file_generation_failed(${entry})`),
+        requiredChanges: ["Retry the local write execution once the model runtime is healthy."],
+        rawSummary: `File generation failed for ${targetFile}.`,
+        model: runResult.model || "",
+        fallbackUsed: Boolean(runResult.fallbackUsed),
+        attempts: writeAttempts,
+        stderr: runResult.stderr || runResult.error || "",
+      };
+    }
+
+    const prepared = prepareGeneratedFileContent(targetFile, runResult.stdout || "");
+    if (!prepared.ok) {
+      return {
+        ok: false,
+        failureCode: "execution_invalid_file_content",
+        failureSummary: "Model returned unusable file content.",
+        exactProblem: `${targetFile}: ${prepared.exactProblem}`,
+        failedChecks: prepared.failedChecks,
+        requiredChanges: ["Regenerate the file contents without commentary, apologies, or extra guidance text."],
+        rawSummary: `File content validation failed for ${targetFile}.`,
+        model: runResult.model || "",
+        fallbackUsed: Boolean(runResult.fallbackUsed),
+        attempts: writeAttempts,
+      };
+    }
+
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    fs.writeFileSync(targetFile, prepared.content, "utf8");
+    writtenFiles.push(targetFile);
+  }
+
+  let verification = runLocalWriteVerification(expectedFiles[0] ? path.dirname(expectedFiles[0]) : "");
+  if (!verification.ok) {
+    const repair = attemptLocalWriteRepair(task, actionPlanText, expectedFiles, verification, writeAttempts);
+    selectedModel = repair.model || selectedModel;
+    fallbackUsed = fallbackUsed || Boolean(repair.fallbackUsed);
+    if (repair.repaired) {
+      verification = repair.verification;
+    }
+  }
+  const verificationSummary = verification.ok
+    ? `Verification passed: ${verification.steps.join("; ")}`
+    : `Verification incomplete: ${verification.exactProblem}`;
+  if (verification.stdout) {
+    writeArtifact(task, "local-write-verification.stdout.txt", `${verification.stdout}\n`);
+  }
+  if (verification.stderr) {
+    writeArtifact(task, "local-write-verification.stderr.txt", `${verification.stderr}\n`);
+  }
+
+  return {
+    ok: verification.ok,
+    failureCode: verification.ok ? "" : "execution_runtime_error",
+    failureSummary: verification.ok ? "" : "Local verification failed after writing scaffold files.",
+    exactProblem: verification.ok ? "" : verification.exactProblem,
+    failedChecks: verification.ok ? [] : verification.steps.map((step) => `failed_step(${step}) = true`),
+    requiredChanges: verification.ok ? [] : ["Fix the generated scaffold and rerun npm install plus npm run build."],
+    finalOutcome: buildLocalWriteOutcome(expectedFiles, verification),
+    rawSummary: [
+      `Host-side local write execution completed for ${writtenFiles.length} file(s).`,
+      ...writtenFiles.map((filePath) => `- ${filePath}`),
+      verificationSummary,
+    ].join("\n"),
+    model: selectedModel || writeAttempts.find((attempt) => attempt.ok)?.model || writeAttempts[0]?.model || "",
+    fallbackUsed:
+      fallbackUsed ||
+      writeAttempts.some((attempt) => attempt.ok && attempt.model !== getPrimaryOllamaModel()),
+    attempts: writeAttempts,
+    stderr: verification.ok ? "" : verification.stderr || verification.exactProblem,
+  };
+}
+
+function attemptLocalWriteRepair(task, actionPlanText, expectedFiles, verification, writeAttempts) {
+  const projectRoot = expectedFiles[0] ? path.dirname(expectedFiles[0]) : "";
+  const repairTargets = extractRepairTargetsFromVerification(projectRoot, verification, expectedFiles);
+  if (repairTargets.length === 0) {
+    return { repaired: false, verification, model: "", fallbackUsed: false };
+  }
+
+  let selectedModel = "";
+  let fallbackUsed = false;
+  const attemptedTargets = [];
+
+  for (const targetFile of repairTargets) {
+    const currentContent = safeReadFile(targetFile);
+    const repairPrompt = buildVerificationRepairPrompt(
+      task,
+      actionPlanText,
+      targetFile,
+      currentContent,
+      verification,
+      expectedFiles,
+    );
+    const repairResult = invokeExecutionModel(task, repairPrompt);
+    selectedModel = repairResult.model || selectedModel;
+    fallbackUsed = fallbackUsed || Boolean(repairResult.fallbackUsed);
+    writeAttempts.push(...(repairResult.attempts || []));
+    if (!(repairResult.attempts || []).length) {
+      writeAttempts.push(summarizeOllamaAttempt(repairResult));
+    }
+
+    writeArtifact(
+      task,
+      `qwen-repair-${sanitizeFileName(path.basename(targetFile))}.raw.txt`,
+      `${repairResult.stdout || ""}\n`,
+    );
+    if (repairResult.stderr) {
+      writeArtifact(
+        task,
+        `qwen-repair-${sanitizeFileName(path.basename(targetFile))}.stderr.txt`,
+        `${repairResult.stderr}\n`,
+      );
+    }
+
+    if (!repairResult.ok) {
+      return { repaired: false, verification, model: selectedModel, fallbackUsed };
+    }
+
+    const prepared = prepareGeneratedFileContent(targetFile, repairResult.stdout || "");
+    if (!prepared.ok) {
+      return { repaired: false, verification, model: selectedModel, fallbackUsed };
+    }
+
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    fs.writeFileSync(targetFile, prepared.content, "utf8");
+    attemptedTargets.push(targetFile);
+  }
+
+  if (attemptedTargets.length === 0) {
+    return { repaired: false, verification, model: selectedModel, fallbackUsed };
+  }
+
+  const rerun = runLocalWriteVerification(projectRoot);
+  const notes = [
+    `Repair attempted for ${attemptedTargets.length} file(s).`,
+    ...attemptedTargets.map((filePath) => `- ${filePath}`),
+    rerun.ok
+      ? `Repair verification passed: ${rerun.steps.join("; ")}`
+      : `Repair verification still failing: ${sanitizeText(rerun.exactProblem)}`,
+  ].join("\n");
+  writeArtifact(task, "local-write-repair-summary.txt", `${notes}\n`);
+  return {
+    repaired: true,
+    verification: rerun,
+    model: selectedModel,
+    fallbackUsed,
+  };
+}
+
 function verifyExecution(task) {
   const artifactDir = getTaskArtifactDir(task);
   const exists = fs.existsSync(artifactDir);
   const outcome = sanitizeText(task.body.final_outcome).trim();
   const expectedFiles = extractExpectedFiles(task);
+  const implementationTask = isImplementationExecutionTask(task);
+  const evidence = collectExecutionEvidence(artifactDir);
   if (!exists) {
-    return {
+    return withVerificationReport(task, {
       ok: false,
       failureCode: "verification_missing_artifacts",
       failureSummary: "Execution artifacts are missing.",
@@ -714,10 +1034,12 @@ function verifyExecution(task) {
       failedChecks: [`artifact_dir_exists(${artifactDir}) = false`],
       requiredChanges: ["Re-run execution so artifacts are written before verification."],
       operatorMessage: `Why it failed: execution artifacts are missing.\nWhat is wrong now: ${artifactDir} does not exist.\nWhat Qwen/Librarian already tried: execution completed without a usable artifact bundle.\nWhat decision or edit is needed from you: review the task artifacts or request a rerun.`,
-    };
+      command: `artifact-check ${artifactDir}`,
+      evidence,
+    });
   }
   if (!outcome) {
-    return {
+    return withVerificationReport(task, {
       ok: false,
       failureCode: "verification_missing_outcome",
       failureSummary: "Final outcome summary is missing after execution.",
@@ -725,12 +1047,60 @@ function verifyExecution(task) {
       failedChecks: ["final_outcome_present = false"],
       requiredChanges: ["Re-run execution and ensure a final outcome is recorded."],
       operatorMessage: "Why it failed: final outcome summary is missing.\nWhat is wrong now: the task page has no final outcome.\nWhat Qwen/Librarian already tried: execution completed but did not persist the result cleanly.\nWhat decision or edit is needed from you: request a rerun or update the task outcome manually.",
-    };
+      command: `artifact-check ${artifactDir}`,
+      evidence,
+    });
+  }
+  if (implementationTask && isReviewOnlyOutcome(outcome)) {
+    return withVerificationReport(task, {
+      ok: false,
+      failureCode: "verification_review_only_outcome",
+      failureSummary: "Implementation task reported a review-only outcome.",
+      exactProblem: `Final outcome is review-only instead of implementation proof: ${outcome}`,
+      failedChecks: ["implementation_outcome_is_review_only = true"],
+      requiredChanges: [
+        "Re-run execution and require concrete implementation evidence, not a review-only summary.",
+      ],
+      operatorMessage: [
+        "Why it failed: an implementation task reported a review-only outcome.",
+        `What is wrong now: ${outcome}`,
+        "What Qwen/Librarian already tried: execution returned an artifact/report summary instead of proving code changes.",
+        "What decision or edit is needed from you: rerun the task with concrete file/build verification or narrow it into a true review-only task.",
+      ].join("\n"),
+      command: `artifact-check ${artifactDir}`,
+      evidence,
+    });
+  }
+  if (implementationTask && !hasConcreteExecutionEvidence(evidence)) {
+    return withVerificationReport(task, {
+      ok: false,
+      failureCode: "verification_insufficient_evidence",
+      failureSummary: "Implementation task lacks concrete completion evidence.",
+      exactProblem:
+        "Execution did not produce file-write artifacts, local verification output, or a repair summary. Artifact-only completion is not accepted for implementation tasks.",
+      failedChecks: [
+        `generated_file_artifacts > 0 = ${evidence.generatedFileArtifactCount > 0}`,
+        `local_write_verification_present = ${evidence.localWriteVerificationPresent}`,
+        `repair_summary_present = ${evidence.repairSummaryPresent}`,
+      ],
+      requiredChanges: [
+        "Re-run execution and require actual file writes or command verification output.",
+        "Do not complete implementation tasks on artifact-check alone.",
+      ],
+      operatorMessage: [
+        "Why it failed: reporting could not prove that implementation actually landed.",
+        "What is wrong now: the task only has generic artifacts and no file-write/build evidence.",
+        "What Qwen/Librarian already tried: execution returned a summary and artifact bundle without implementation proof.",
+        "What decision or edit is needed from you: rerun the task with explicit deliverables and concrete verification.",
+      ].join("\n"),
+      command: `artifact-check ${artifactDir}`,
+      evidence,
+    });
   }
   if (expectedFiles.length > 0) {
     const missingFiles = expectedFiles.filter((filePath) => !fs.existsSync(filePath));
     if (missingFiles.length > 0) {
-      return {
+      return withVerificationReport(task, {
         ok: false,
         failureCode: "verification_missing_expected_files",
         failureSummary: "Expected execution files are missing.",
@@ -745,19 +1115,66 @@ function verifyExecution(task) {
           "What Qwen/Librarian already tried: execution produced artifacts and an outcome summary, but the expected files were not found on disk.",
           "What decision or edit is needed from you: request a rerun or update the task so verification matches the real deliverables.",
         ].join("\n"),
-      };
+        command: `fs-check ${expectedFiles.join(", ")}`,
+        evidence,
+      });
     }
   }
-  return {
+  return withVerificationReport(task, {
     ok: true,
     command:
       expectedFiles.length > 0
         ? `fs-check ${expectedFiles.join(", ")}`
         : `artifact-check ${artifactDir}`,
+    evidence,
+  });
+}
+
+function withVerificationReport(task, report) {
+  writeArtifact(task, "verification-report.json", `${JSON.stringify(report, null, 2)}\n`);
+  return report;
+}
+
+function collectExecutionEvidence(artifactDir) {
+  const names = fs.existsSync(artifactDir) ? fs.readdirSync(artifactDir) : [];
+  return {
+    artifactCount: names.length,
+    generatedFileArtifactCount: names.filter((name) => /^qwen-file-.*\.raw\.txt$/i.test(name)).length,
+    localWriteVerificationPresent:
+      names.includes("local-write-verification.stdout.txt") ||
+      names.includes("local-write-verification.stderr.txt"),
+    repairSummaryPresent: names.includes("local-write-repair-summary.txt"),
+    rawExecutionPresent: names.includes("qwen-execution-raw.txt"),
+    modelRecordPresent: names.includes("qwen-execution-model.json"),
+    artifactNames: names.slice(0, 32),
   };
 }
 
+function hasConcreteExecutionEvidence(evidence) {
+  return Boolean(
+    evidence &&
+      (evidence.generatedFileArtifactCount > 0 ||
+        evidence.localWriteVerificationPresent ||
+        evidence.repairSummaryPresent),
+  );
+}
+
+function isReviewOnlyOutcome(outcome) {
+  const text = sanitizeText(outcome).toLowerCase();
+  return (
+    text.includes("review-only task completed") ||
+    text.includes("alignment review") ||
+    text.includes("artifact bundle exists") ||
+    text.includes("repo report drafted") ||
+    text.includes("report drafted in notion")
+  );
+}
+
 function handleExecutionFailure(task, failure) {
+  if (isInitialGitCommitBlocker(failure)) {
+    return resolveInitialGitCommitBlocker(task, failure);
+  }
+
   const workflowStage = failure.workflowStage || STAGE.QWEN_EXECUTION;
   const failingActor = failure.failingActor || "Qwen";
   const retryLimit = Number.isFinite(failure.retryLimit)
@@ -791,6 +1208,10 @@ function handleExecutionFailure(task, failure) {
     return { changed: true, stop: false };
   }
 
+  if (shouldHandOffToClaude(task, failure, retryLimit)) {
+    return handOffExecutionToClaude(task, failure, failingActor);
+  }
+
   task.status = STATUS.ESCALATED;
   task.workflow_stage = STAGE.ESCALATED_TO_OPERATOR;
   task.sync_status = "Not Synced";
@@ -808,6 +1229,104 @@ function handleExecutionFailure(task, failure) {
     stop: true,
     notifyOperator: true,
     notifyReason: report.failure_summary,
+  };
+}
+
+function isInitialGitCommitBlocker(failure) {
+  const combinedText = [
+    sanitizeText(failure && failure.failureSummary),
+    sanitizeText(failure && failure.exactProblem),
+    ...(Array.isArray(failure && failure.failedChecks) ? failure.failedChecks : []),
+    ...(Array.isArray(failure && failure.requiredChanges) ? failure.requiredChanges : []),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return /needs? initial github commit|needs? initial git commit|manual initial (github|git) commit|repository has no commits yet|current branch .+ has no commits yet|src refspec .+ does not match any|ambiguous argument 'head'|unknown revision or path not in the working tree/i.test(
+    combinedText,
+  );
+}
+
+function shouldHandOffToClaude(task, failure, retryLimit) {
+  if (!canUseClaudeExecution()) {
+    return false;
+  }
+  if (!isImplementationExecutionTask(task)) {
+    return false;
+  }
+  if (getExecutionProvider(task) === "claude") {
+    return false;
+  }
+  if (!failure || failure.retryable === false) {
+    return false;
+  }
+  if (!isClaudeEligibleFailureCode(failure.failureCode)) {
+    return false;
+  }
+  return task.stage_retry_count >= retryLimit;
+}
+
+function handOffExecutionToClaude(task, failure, failingActor) {
+  task.metadata = task.metadata || {};
+  task.metadata.execution_provider = "claude";
+  task.metadata.execution_provider_switched_at = new Date().toISOString();
+  task.metadata.execution_provider_previous = getPrimaryOllamaModel();
+  task.stage_retry_count = 0;
+  task.status = STATUS.RETRYING;
+  task.workflow_stage = failure.retryStage || STAGE.QWEN_EXECUTION;
+  task.sync_status = "Synced";
+  task.body.final_outcome = "";
+  appendAttemptHistory(
+    task,
+    `Local execution retries exhausted for ${sanitizeText(failingActor).toLowerCase()}; handing off to Claude execution fallback.`,
+  );
+  return { changed: true, stop: false };
+}
+
+function isClaudeEligibleFailureCode(failureCode) {
+  return [
+    "execution_runtime_error",
+    "execution_invalid_json",
+    "execution_missing_outcome",
+    "execution_invalid_file_content",
+    "verification_missing_expected_files",
+    "verification_review_only_outcome",
+    "verification_insufficient_evidence",
+  ].includes(sanitizeText(failureCode).trim());
+}
+
+function resolveInitialGitCommitBlocker(task, failure) {
+  const note =
+    "Needs initial GitHub commit before delegated milestone commits can run. Review and create the first commit manually, then reapprove later commit tasks.";
+  const existingOperatorNotes = sanitizeText(task.operator_notes || task.body.operator_notes).trim();
+  const mergedOperatorNotes = existingOperatorNotes
+    ? existingOperatorNotes.includes(note)
+      ? existingOperatorNotes
+      : `${existingOperatorNotes}\n${note}`
+    : note;
+  const existingOutcome = sanitizeText(task.body.final_outcome).trim();
+
+  task.operator_notes = mergedOperatorNotes;
+  task.body.operator_notes = mergedOperatorNotes;
+  task.body.final_outcome =
+    existingOutcome ||
+    "Implementation milestone completed locally; manual initial GitHub commit is still required before delegated milestone commits can continue.";
+  clearFailureState(task);
+  task.status = STATUS.COMPLETED;
+  task.workflow_stage = STAGE.COMPLETED;
+  task.sync_status = "Not Synced";
+  appendAttemptHistory(
+    task,
+    `Commit step deferred for operator review: ${note} Original blocker: ${sanitizeText(
+      failure && failure.failureSummary,
+    ) || sanitizeText(failure && failure.exactProblem) || "Initial GitHub commit is missing."}`,
+  );
+
+  return {
+    changed: true,
+    stop: true,
+    notifyOperator: true,
+    notifyReason: note,
   };
 }
 
@@ -923,8 +1442,11 @@ function buildExecutionPrompt(task, actionPlanText) {
     "Before responding, internally verify that your output is valid JSON matching the schema exactly.",
     "Keep body.final_outcome to one concise sentence no longer than 240 characters.",
     "Inside JSON strings, escape newlines as \\n and tabs as \\t.",
-    "If execution is review-only, return a final_outcome that says exactly what review artifact or report was produced.",
+    expectedFiles.length > 0
+      ? "This is a filesystem write task, not a review-only task."
+      : "If the approved task is explicitly review-only, return a final_outcome that says exactly what review artifact or report was produced.",
     "Unless the approved task explicitly authorizes version-control actions, do not run git init, git add, git commit, git push, create branches, or open pull requests.",
+    "If a later milestone explicitly authorizes a commit but the repo still needs its first manual GitHub commit, stop and report that operator note instead of treating it as a fatal execution failure.",
     approvedRoots.length > 0
       ? `All writes must stay inside: ${approvedRoots.join(", ")}`
       : "No file writes are authorized unless explicitly listed in the approved task.",
@@ -1027,6 +1549,13 @@ function invokeOllama(prompt) {
   };
 }
 
+function invokeExecutionModel(task, prompt) {
+  if (getExecutionProvider(task) === "claude" && canUseClaudeExecution()) {
+    return runClaudeModel(getClaudeExecutionModel(), prompt);
+  }
+  return invokeOllama(prompt);
+}
+
 function runOllamaModel(model, prompt) {
   const raw = spawnSync("ollama", ["run", model], {
     cwd: ROOT,
@@ -1047,13 +1576,136 @@ function runOllamaModel(model, prompt) {
   };
 }
 
+function runClaudeModel(model, prompt) {
+  const apiKey = sanitizeText(process.env.ANTHROPIC_API_KEY).trim();
+  if (!apiKey) {
+    return {
+      ok: false,
+      model,
+      status: 0,
+      stdout: "",
+      stderr: "ANTHROPIC_API_KEY is not set.",
+      error: "Claude execution fallback is unavailable because ANTHROPIC_API_KEY is missing.",
+      fallbackUsed: false,
+      attempts: [],
+    };
+  }
+
+  const tmpDir = path.join(ROOT, "runtime", "tmp");
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const requestPath = path.join(tmpDir, `claude-request-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`);
+  const responsePath = path.join(tmpDir, `claude-response-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`);
+  const requestBody = {
+    model,
+    max_tokens: 4096,
+    system: "You are Claude Code acting as the execution fallback for AI Assistant OS. Follow the user's execution contract exactly and return only the requested output shape.",
+    messages: [{ role: "user", content: sanitizeText(prompt) }],
+  };
+
+  fs.writeFileSync(requestPath, JSON.stringify(requestBody), "utf8");
+  const raw = spawnSync(
+    "curl.exe",
+    [
+      "-sS",
+      "https://api.anthropic.com/v1/messages",
+      "-H",
+      `x-api-key: ${apiKey}`,
+      "-H",
+      "anthropic-version: 2023-06-01",
+      "-H",
+      "content-type: application/json",
+      "-o",
+      responsePath,
+      "-w",
+      "%{http_code}",
+      "--data-binary",
+      `@${requestPath}`,
+    ],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+      timeout: CLAUDE_TIMEOUT_MS,
+    },
+  );
+
+  const statusCode = sanitizeText(raw.stdout || "").trim();
+  const responseText = fs.existsSync(responsePath) ? fs.readFileSync(responsePath, "utf8") : "";
+  try {
+    if (fs.existsSync(requestPath)) fs.unlinkSync(requestPath);
+    if (fs.existsSync(responsePath)) fs.unlinkSync(responsePath);
+  } catch {}
+
+  if (raw.error) {
+    return {
+      ok: false,
+      model,
+      status: raw.status,
+      stdout: "",
+      stderr: sanitizeText(raw.stderr || ""),
+      error: sanitizeText(raw.error.message),
+      fallbackUsed: false,
+      attempts: [],
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = responseText ? JSON.parse(responseText) : null;
+  } catch (error) {
+    return {
+      ok: false,
+      model,
+      status: raw.status,
+      stdout: sanitizeText(responseText),
+      stderr: sanitizeText(raw.stderr || ""),
+      error: `Claude response was not valid JSON: ${sanitizeText(error.message)}`,
+      fallbackUsed: false,
+      attempts: [],
+    };
+  }
+
+  if (Number(statusCode) >= 400) {
+    const apiError =
+      sanitizeText(parsed && parsed.error && (parsed.error.message || parsed.error.type)) ||
+      sanitizeText(responseText);
+    return {
+      ok: false,
+      model,
+      status: Number(statusCode) || raw.status,
+      stdout: "",
+      stderr: apiError,
+      error: apiError,
+      fallbackUsed: false,
+      attempts: [],
+    };
+  }
+
+  const text = Array.isArray(parsed && parsed.content)
+    ? parsed.content
+        .filter((entry) => entry && entry.type === "text")
+        .map((entry) => sanitizeText(entry.text || ""))
+        .join("\n")
+    : "";
+
+  return {
+    ok: Boolean(text),
+    model,
+    status: Number(statusCode) || raw.status || 0,
+    stdout: text,
+    stderr: sanitizeText(raw.stderr || ""),
+    error: text ? "" : "Claude returned no text content.",
+    fallbackUsed: false,
+    attempts: [],
+  };
+}
+
 function getPrimaryOllamaModel() {
-  return sanitizeText(process.env.OLLAMA_MODEL || "qwen2.5-coder:7b").trim();
+  return sanitizeText(process.env.OLLAMA_MODEL || "deepseek-coder:6.7b").trim();
 }
 
 function getFallbackOllamaModel(primaryModel) {
   const fallback = sanitizeText(
-    process.env.OLLAMA_FALLBACK_MODEL || "deepseek-coder:6.7b",
+    process.env.OLLAMA_FALLBACK_MODEL || "qwen2.5-coder:7b",
   ).trim();
   if (!fallback || fallback === primaryModel) {
     return "";
@@ -1074,6 +1726,19 @@ function shouldTryFallback(result) {
     failureText.includes("out of memory") ||
     failureText.includes("timed out")
   );
+}
+
+function canUseClaudeExecution() {
+  return Boolean(sanitizeText(process.env.ANTHROPIC_API_KEY).trim());
+}
+
+function getClaudeExecutionModel() {
+  return sanitizeText(process.env.CLAUDE_EXECUTION_MODEL || "claude-3-5-haiku-latest").trim();
+}
+
+function getExecutionProvider(task) {
+  const provider = sanitizeText(task && task.metadata && task.metadata.execution_provider).trim().toLowerCase();
+  return provider === "claude" ? "claude" : "local";
 }
 
 function summarizeOllamaAttempt(result) {
@@ -1118,7 +1783,7 @@ function attemptExecutionJsonRepair(task, rawOutput, parseError) {
     sanitizeText(rawOutput),
   ].join("\n");
 
-  const repairResult = invokeOllama(repairPrompt);
+  const repairResult = invokeExecutionModel(task, repairPrompt);
   writeArtifact(task, "qwen-execution-repair-raw.txt", `${repairResult.stdout || ""}\n`);
   if (repairResult.stderr) {
     writeArtifact(task, "qwen-execution-repair-stderr.txt", `${repairResult.stderr}\n`);
@@ -1151,13 +1816,14 @@ function attemptExecutionJsonRepair(task, rawOutput, parseError) {
 
 function buildCompactExecutionBrief(task, actionPlanText) {
   const approvedRoots = extractApprovedWriteRoots(task);
+  const expectedFiles = extractExpectedFiles(task);
   const sections = [
     `Task summary: ${sanitizeText(task.body.summary || task.title).trim()}`,
-    task.body.proposed_action
-      ? `Approved action: ${sanitizeText(task.body.proposed_action).trim()}`
+    getPreferredApprovedActionText(task)
+      ? `Approved action: ${getPreferredApprovedActionText(task)}`
       : "",
     approvedRoots.length > 0 ? `Allowed write roots: ${approvedRoots.join(", ")}` : "",
-    formatListSection("Expected files", extractExpectedFiles(task)),
+    formatListSection("Expected files", expectedFiles),
     formatListSection("Verification targets", extractVerificationTargets(task)),
     formatListSection("Critical constraints", extractConstraintLines(task)),
     formatListSection("Execution notes", extractActionPlanHighlights(actionPlanText)),
@@ -1168,10 +1834,11 @@ function buildCompactExecutionBrief(task, actionPlanText) {
 
 function buildCompactScopeBrief(task, actionPlanText) {
   const approvedRoots = extractApprovedWriteRoots(task);
+  const expectedFiles = extractExpectedFiles(task);
   const sections = [
     `Task summary: ${sanitizeText(task.body.summary || task.title).trim()}`,
     approvedRoots.length > 0 ? `Allowed write roots: ${approvedRoots.join(", ")}` : "",
-    formatListSection("Expected files", extractExpectedFiles(task)),
+    formatListSection("Expected files", expectedFiles),
     formatListSection("Critical constraints", extractConstraintLines(task)),
     formatListSection("Execution notes", extractActionPlanHighlights(actionPlanText, 4)),
   ].filter(Boolean);
@@ -1181,8 +1848,10 @@ function buildCompactScopeBrief(task, actionPlanText) {
 
 function extractExpectedFiles(task) {
   const source = [
-    sanitizeText(task.body.full_context),
     sanitizeText(task.body.proposed_action),
+    sanitizeText(task.body.gpt_plan),
+    sanitizeText(task.body.qwen_action_plan_for_approval),
+    sanitizeText(task.body.machine_task_json),
   ]
     .filter(Boolean)
     .join("\n");
@@ -1195,7 +1864,9 @@ function extractExpectedFiles(task) {
     .filter(Boolean);
 
   for (const line of lines) {
-    if (!/^(Files:|Expected file footprint:|- )/i.test(line)) {
+    const isExpectedFootprintLine = /^(Files:|Expected file footprint:)/i.test(line);
+    const isExplicitFileBullet = /^-\s+(?:[A-Z]:\\|\.[A-Za-z0-9]|[A-Za-z0-9_.-]+(?:[\\/])|[A-Za-z0-9_.-]+\.[A-Za-z0-9]+)\b/i.test(line);
+    if (!isExpectedFootprintLine && !isExplicitFileBullet) {
       continue;
     }
     for (const candidate of extractFilePathCandidates(line, defaultRoot)) {
@@ -1218,10 +1889,10 @@ function extractFilePathCandidates(line, defaultRoot) {
   }
 
   const candidates = [];
-  const absoluteMatches = cleanedLine.match(/[A-Z]:\\[^,\r\n]+/g) || [];
+  const absoluteMatches = cleanedLine.match(/[A-Z]:\\[^\s,;\r\n]+/g) || [];
   for (const match of absoluteMatches) {
     const clean = normalizeWindowsPath(match.replace(/[;,.]+$/g, "").trim());
-    if (clean) {
+    if (clean && looksLikeExpectedFilePath(clean, normalizedRoot)) {
       candidates.push(clean);
     }
   }
@@ -1240,19 +1911,23 @@ function extractFilePathCandidates(line, defaultRoot) {
     .filter(Boolean);
 
   for (const segment of segments) {
-    if (!/[\\/]/.test(segment) && !/\.[A-Za-z0-9]+$/.test(segment)) {
+    if (/\s/.test(segment)) {
       continue;
     }
-    candidates.push(normalizeWindowsPath(path.join(normalizedRoot, segment)));
+    if (!/[\\/]/.test(segment) && !/\.[A-Za-z0-9]+$/.test(segment) && !segment.startsWith(".")) {
+      continue;
+    }
+    const candidate = normalizeWindowsPath(path.join(normalizedRoot, segment));
+    if (looksLikeExpectedFilePath(candidate, normalizedRoot)) {
+      candidates.push(candidate);
+    }
   }
 
   return candidates;
 }
 
 function extractVerificationTargets(task) {
-  const lines = sanitizeText(
-    [task.body.full_context, task.body.proposed_action].filter(Boolean).join("\n"),
-  )
+  const lines = sanitizeText(getExecutionSignalText(task))
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
@@ -1341,19 +2016,21 @@ function truncateForLocalExecutor(text, maxLength) {
 function extractApprovedWriteRoots(task) {
   const text = [
     sanitizeText(task.body.constraints_guardrails),
-    sanitizeText(task.body.full_context),
-    sanitizeText(task.body.proposed_action),
     sanitizeText(task.body.affected_components),
     sanitizeText(task.body.machine_task_json),
+    getExecutionSignalText(task),
   ]
     .filter(Boolean)
     .join("\n");
 
   const explicitRoots = [];
-  const explicitPattern = /All file writes must occur in\s+"([^"]+)"/gi;
+  const explicitPattern = /All file writes must occur in\s+"?([A-Z]:\\[^"\s\r\n]+)"?/gi;
   let explicitMatch;
   while ((explicitMatch = explicitPattern.exec(text))) {
-    explicitRoots.push(normalizeWindowsPath(explicitMatch[1]));
+    const candidate = sanitizeApprovedRootCandidate(explicitMatch[1]);
+    if (candidate) {
+      explicitRoots.push(candidate);
+    }
   }
   if (explicitRoots.length > 0) {
     return Array.from(new Set(explicitRoots.filter(Boolean)));
@@ -1367,13 +2044,636 @@ function extractApprovedWriteRoots(task) {
 }
 
 function inferProjectRootFromPath(filePath) {
-  const normalized = normalizeWindowsPath(filePath);
+  const normalized = sanitizeApprovedRootCandidate(filePath);
+  if (!normalized) {
+    return "";
+  }
   const match = normalized.match(/^([A-Z]:\\[^\\]+)(?:\\.*)?$/i);
   return match ? match[1] : normalized;
 }
 
 function normalizeWindowsPath(value) {
   return sanitizeText(value).trim().replace(/\//g, "\\").replace(/\\+$/, "");
+}
+
+function sanitizeApprovedRootCandidate(value) {
+  const normalized = normalizeWindowsPath(value).replace(/[.]+$/g, "");
+  if (!/^[A-Z]:\\/i.test(normalized)) {
+    return "";
+  }
+  return normalized;
+}
+
+function looksLikeExpectedFilePath(candidatePath, defaultRoot = "") {
+  const normalized = normalizeWindowsPath(candidatePath);
+  if (!normalized || normalized === normalizeWindowsPath(defaultRoot)) {
+    return false;
+  }
+
+  const basename = path.basename(normalized);
+  if (basename.startsWith(".")) {
+    return true;
+  }
+
+  if (/README(?:\.[A-Za-z0-9]+)?$/i.test(basename)) {
+    return true;
+  }
+
+  return /\.[A-Za-z0-9]+$/i.test(basename);
+}
+
+function getExecutionSignalText(task) {
+  return [
+    sanitizeText(task.body.full_context),
+    sanitizeText(task.body.proposed_action),
+    sanitizeText(task.body.gpt_plan),
+    sanitizeText(task.body.qwen_action_plan_for_approval),
+    sanitizeText(task.body.prompt_package_for_approval),
+    sanitizeText(task.operator_notes),
+    sanitizeText(task.revised_instructions),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function getPreferredApprovedActionText(task) {
+  return sanitizeText(task.body.proposed_action || "").trim() || "";
+}
+
+function ensureApprovedRootsReady(task, approvedRoots, expectedFiles) {
+  const root = approvedRoots[0] || "";
+  if (!root) {
+    return {
+      ok: false,
+      failureSummary: "No approved write root was found for the execution task.",
+      exactProblem: "The execution task did not provide an approved local write root.",
+      failedChecks: ["approved_write_root_present = false"],
+      requiredChanges: ["Update the task context so the approved write root is explicit."],
+    };
+  }
+
+  fs.mkdirSync(root, { recursive: true });
+  if (!shouldEnforceScaffoldFootprint(task)) {
+    return { ok: true };
+  }
+
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  const expectedSet = buildAllowedScaffoldEntrySet(root, expectedFiles);
+  const unexpected = [];
+
+  for (const entry of entries) {
+    const entryPath = normalizeWindowsPath(path.join(root, entry.name));
+    if (!expectedSet.has(entryPath.toLowerCase())) {
+      unexpected.push(entryPath);
+    }
+  }
+
+  if (unexpected.length > 0) {
+    return {
+      ok: false,
+      failureSummary: "Approved write root contains files that are outside the current scaffold footprint.",
+      exactProblem: `Unexpected existing entries in ${root}: ${unexpected.join(", ")}`,
+      failedChecks: unexpected.map((entryPath) => `unexpected_entry(${entryPath}) = true`),
+      requiredChanges: ["Review the existing directory contents before rerunning the scaffold task."],
+    };
+  }
+
+  return { ok: true };
+}
+
+function shouldEnforceScaffoldFootprint(task) {
+  const signalText = [
+    sanitizeText(task.title),
+    sanitizeText(task.body.summary),
+    sanitizeText(task.body.proposed_action),
+    sanitizeText(task.operator_notes),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return /(repo scaffold|scaffold ready|project scaffold|scaffold task|app router scaffold|initialize(?: the)? repo|initialize(?: the)? project|bootstrap(?: the)? repo|bootstrap(?: the)? project)/i.test(
+    signalText,
+  );
+}
+
+function buildAllowedScaffoldEntrySet(root, expectedFiles) {
+  const allowed = new Set();
+
+  for (const filePath of expectedFiles) {
+    if (!isPathWithinApprovedRoot(filePath, root)) {
+      continue;
+    }
+
+    let current = normalizeWindowsPath(filePath);
+    while (current && isPathWithinApprovedRoot(current, root)) {
+      allowed.add(current.toLowerCase());
+      if (normalizeWindowsPath(current) === normalizeWindowsPath(root)) {
+        break;
+      }
+      current = normalizeWindowsPath(path.dirname(current));
+      if (!current || current === "." || current === path.dirname(current)) {
+        break;
+      }
+    }
+  }
+
+  const commonGeneratedEntries = [
+    ".git",
+    ".next",
+    "node_modules",
+    "package-lock.json",
+  ];
+  for (const entry of commonGeneratedEntries) {
+    allowed.add(normalizeWindowsPath(path.join(root, entry)).toLowerCase());
+  }
+
+  return allowed;
+}
+
+function buildFileGenerationPrompt(task, actionPlanText, targetFile, expectedFiles) {
+  const extension = path.extname(targetFile).toLowerCase();
+  const workspaceContext = buildWorkspaceContextForTarget(task, targetFile, expectedFiles);
+  const rules = [
+    "Return only the complete contents of the target file.",
+    "Do not return markdown fences, JSON wrappers, explanations, or commentary.",
+    extension === ".json"
+      ? "Return valid JSON only."
+      : "Return plain file contents only.",
+    "Do not say you cannot access local files or ask for more context.",
+    "You are generating the file contents using the approved plan plus the authoritative workspace snapshot below.",
+    "",
+    `Task: ${sanitizeText(task.title)}`,
+    `Target file: ${targetFile}`,
+    `Approved root: ${extractApprovedWriteRoots(task)[0] || ""}`,
+    "",
+    "Expected project file set:",
+    ...expectedFiles.map((filePath) => `- ${filePath}`),
+    "",
+    "File-specific requirements:",
+    ...extractFileSpecificRequirements(actionPlanText, targetFile).map((line) => `- ${line}`),
+    "",
+    "Project-wide execution notes:",
+    ...extractActionPlanHighlights(actionPlanText, 10).map((line) => `- ${line}`),
+    "",
+    "Framework and file rules:",
+    ...getFrameworkRulesForTarget(targetFile).map((line) => `- ${line}`),
+    "",
+    "Workspace snapshot:",
+    workspaceContext,
+  ];
+  return truncateForLocalExecutor(rules.join("\n"), 7000);
+}
+
+function extractFileSpecificRequirements(actionPlanText, targetFile) {
+  const lines = sanitizeText(actionPlanText)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const normalizedTarget = normalizeWindowsPath(targetFile).toLowerCase();
+  const basename = path.basename(targetFile).toLowerCase();
+  const results = [];
+  let capture = false;
+
+  for (const line of lines) {
+    const clean = line.replace(/^-+\s*/, "").trim();
+    const normalizedLine = normalizeWindowsPath(clean).toLowerCase();
+    const lineStartsNewFile =
+      /^[A-Z]:\\/.test(clean) ||
+      /^[A-Z]:\\/.test(normalizedLine) ||
+      /[A-Z]:\\/.test(clean);
+
+    if (!capture) {
+      if (normalizedLine === normalizedTarget || clean.toLowerCase() === basename || clean.toLowerCase().endsWith(`\\${basename}`)) {
+        capture = true;
+      }
+      continue;
+    }
+
+    if (!line.startsWith("-")) {
+      break;
+    }
+    if (lineStartsNewFile && !clean.toLowerCase().includes(basename)) {
+      break;
+    }
+    results.push(clean);
+  }
+
+  if (results.length > 0) {
+    return results;
+  }
+
+  return getFallbackFileRequirements(targetFile);
+}
+
+function getFallbackFileRequirements(targetFile) {
+  const normalized = normalizeWindowsPath(targetFile).toLowerCase();
+  const basename = path.basename(normalized);
+  if (basename === "package.json") {
+    return [
+      'Set name to "mobile-detailing-app", private true, version "0.1.0".',
+      'Include scripts dev/build/start for Next.js.',
+      'Pin next 14.1.0, react 18.2.0, react-dom 18.2.0.',
+      'Add devDependencies for TypeScript, @types/react, and @types/node.',
+      'Set engines.node to ">=18.17.0".',
+    ];
+  }
+  if (basename === "next.config.js") {
+    return ['Export reactStrictMode true and include a JSDoc Next.js config type hint.'];
+  }
+  if (basename === "tsconfig.json") {
+    return [
+      "Use a strict Next.js App Router TypeScript config with noEmit and jsx preserve.",
+      'Include alias "@/*" -> ["./*"].',
+    ];
+  }
+  if (basename === ".gitignore") {
+    return ["Ignore node_modules, .next, out, dist, coverage, *.log, and .env*.local."];
+  }
+  if (basename === "readme.md") {
+    return [
+      "Document project purpose, npm install, npm run dev, Node >=18.17.0, and that this is still pending Notion review.",
+    ];
+  }
+  if (basename === "globals.css") {
+    return ["Provide a minimal reset and simple body typography without Tailwind."];
+  }
+  if (basename === "layout.tsx") {
+    return [
+      "Import ./globals.css.",
+      "Export metadata with the specified title and description.",
+      'Render <html lang="en"><body>{children}</body></html>.',
+    ];
+  }
+  if (basename === "page.tsx") {
+    return ['Render a main element with h1 "Mobile Detailing App" and a short scaffold-ready paragraph.'];
+  }
+  return ["Match the approved action plan for this target file exactly."];
+}
+
+function prepareGeneratedFileContent(targetFile, rawOutput) {
+  const rawText = sanitizeText(rawOutput).trim();
+  const suspicious = detectModelFileOutputIssues(targetFile, rawText);
+  if (suspicious.length > 0) {
+    return {
+      ok: false,
+      exactProblem: `Model returned non-file content: ${suspicious.join("; ")}`,
+      failedChecks: suspicious.map((issue) => `${issue}(${targetFile}) = true`),
+    };
+  }
+  const cleaned = extractPreferredContentBlock(rawText);
+  if (!cleaned) {
+    return {
+      ok: false,
+      exactProblem: "Model returned empty file content.",
+      failedChecks: [`generated_content_present(${targetFile}) = false`],
+    };
+  }
+
+  if (path.extname(targetFile).toLowerCase() === ".json") {
+    try {
+      const parsed = JSON.parse(repairJsonControlCharacters(extractLikelyJsonObject(cleaned)));
+      return { ok: true, content: `${JSON.stringify(parsed, null, 2)}\n` };
+    } catch (error) {
+      return {
+        ok: false,
+        exactProblem: `Invalid JSON content: ${sanitizeText(error.message)}`,
+        failedChecks: [`valid_json(${targetFile}) = false`],
+      };
+    }
+  }
+
+  if (/^here('| i)?s\b|^i (updated|created|wrote)\b|^it seems like\b|^however\b|^based on your/i.test(cleaned)) {
+    return {
+      ok: false,
+      exactProblem: "Model returned commentary instead of raw file contents.",
+      failedChecks: [`raw_file_only(${targetFile}) = false`],
+    };
+  }
+
+  return { ok: true, content: `${cleaned.replace(/\s+$/g, "")}\n` };
+}
+
+function detectModelFileOutputIssues(targetFile, rawText) {
+  const issues = [];
+  const text = String(rawText || "").trim();
+  if (!text) {
+    return issues;
+  }
+
+  if (/i (?:do not|don't) have direct access to files|can't access your local files|cannot access your local files|however, i can provide guidance|it seems like you're asking/i.test(text)) {
+    issues.push("model_apology_or_guidance");
+  }
+  if (/react native/i.test(text)) {
+    issues.push("wrong_framework_reference");
+  }
+  if (/```[\s\S]*```[\s\S]+\S/.test(text)) {
+    issues.push("extra_text_outside_code_block");
+  }
+
+  const extension = path.extname(targetFile).toLowerCase();
+  const cleaned = extractPreferredContentBlock(text);
+  if ((extension === ".tsx" || extension === ".ts" || extension === ".js") && /^\s*(Here|And|In your|This will|Sorry|I('| a)m|Keep in mind)/i.test(cleaned)) {
+    issues.push("commentary_in_code_file");
+  }
+
+  return uniqueList(issues);
+}
+
+function extractPreferredContentBlock(input) {
+  const text = String(input || "").trim();
+  const fencedMatch = text.match(/```(?:[A-Za-z0-9_-]+)?\s*([\s\S]*?)```/);
+  if (fencedMatch && fencedMatch[1]) {
+    return fencedMatch[1].trim();
+  }
+  return stripMarkdownCodeFences(text);
+}
+
+function runLocalWriteVerification(projectRoot) {
+  if (!projectRoot || !fs.existsSync(projectRoot)) {
+    return {
+      ok: false,
+      exactProblem: "Project root is missing for local verification.",
+      steps: [],
+      stdout: "",
+      stderr: "",
+    };
+  }
+
+  const install = runNpmCommand(projectRoot, ["install"]);
+  const installStdout = sanitizeText(install.stdout || "");
+  const installStderr = sanitizeText(install.stderr || "");
+  if (install.error || install.status !== 0) {
+    return {
+      ok: false,
+      exactProblem: install.error
+        ? sanitizeText(install.error.message)
+        : installStderr || installStdout || `npm install exited ${install.status}`,
+      steps: ["npm install"],
+      stdout: installStdout,
+      stderr: installStderr,
+    };
+  }
+
+  const build = runNpmCommand(projectRoot, ["run", "build"]);
+  const buildStdout = sanitizeText(build.stdout || "");
+  const buildStderr = sanitizeText(build.stderr || "");
+  if (build.error || build.status !== 0) {
+    return {
+      ok: false,
+      exactProblem: build.error
+        ? sanitizeText(build.error.message)
+        : buildStderr || buildStdout || `npm run build exited ${build.status}`,
+      steps: ["npm install", "npm run build"],
+      stdout: `${installStdout}\n${buildStdout}`.trim(),
+      stderr: `${installStderr}\n${buildStderr}`.trim(),
+    };
+  }
+
+  return {
+    ok: true,
+    steps: ["npm install", "npm run build"],
+    stdout: `${installStdout}\n${buildStdout}`.trim(),
+    stderr: `${installStderr}\n${buildStderr}`.trim(),
+  };
+}
+
+function extractRepairTargetsFromVerification(projectRoot, verification, expectedFiles) {
+  const stderr = sanitizeText(verification.stderr || verification.exactProblem || "");
+  const targets = [];
+  const expectedMap = new Map(
+    expectedFiles.map((filePath) => [normalizeWindowsPath(filePath).toLowerCase(), filePath]),
+  );
+
+  const fileMatches = stderr.match(/\.\/app\/[^\s:]+/g) || [];
+  for (const match of fileMatches) {
+    const normalized = normalizeWindowsPath(
+      path.join(projectRoot, match.replace(/^\.\//, "").replace(/\//g, "\\")),
+    ).toLowerCase();
+    if (expectedMap.has(normalized)) {
+      targets.push(expectedMap.get(normalized));
+    }
+  }
+
+  if (/can't resolve '\.\/Header'|can't resolve '\.\/Footer'/i.test(stderr)) {
+    const layoutTarget = expectedFiles.find((filePath) => /app\\layout\.tsx$/i.test(normalizeWindowsPath(filePath)));
+    if (layoutTarget) {
+      targets.push(layoutTarget);
+    }
+  }
+
+  return uniqueList(targets);
+}
+
+function buildVerificationRepairPrompt(task, actionPlanText, targetFile, currentContent, verification, expectedFiles) {
+  const basename = path.basename(targetFile);
+  const workspaceContext = buildWorkspaceContextForTarget(task, targetFile, expectedFiles, currentContent);
+  return [
+    "Repair the target file so the Next.js build error is resolved.",
+    "Return only the complete contents of the target file.",
+    "Do not include markdown fences, explanations, apologies, or commentary.",
+    `Task: ${sanitizeText(task.title)}`,
+    `Target file: ${targetFile}`,
+    `Approved root: ${extractApprovedWriteRoots(task)[0] || ""}`,
+    "",
+    "Current file contents:",
+    currentContent || "[missing file]",
+    "",
+    "Build/runtime error to fix:",
+    sanitizeText(verification.stderr || verification.exactProblem || ""),
+    "",
+    "Expected project file set:",
+    ...expectedFiles.map((filePath) => `- ${filePath}`),
+    "",
+    "Approved task context:",
+    ...extractActionPlanHighlights(actionPlanText, 8).map((line) => `- ${line}`),
+    "",
+    "Framework and file rules:",
+    ...getFrameworkRulesForTarget(targetFile).map((line) => `- ${line}`),
+    "",
+    "Workspace snapshot:",
+    workspaceContext,
+    "",
+    `Fix only ${basename}. If the error mentions imports, correct the import paths to match the approved file footprint exactly.`,
+  ].join("\n");
+}
+
+function buildWorkspaceContextForTarget(task, targetFile, expectedFiles, currentContentOverride = null) {
+  const approvedRoot = extractApprovedWriteRoots(task)[0] || "";
+  const sections = [];
+  const targetContent =
+    currentContentOverride != null ? currentContentOverride : safeReadFile(targetFile);
+
+  sections.push(
+    buildContextSection(
+      `Current target file (${targetFile})`,
+      targetContent || "[missing file]",
+      1400,
+    ),
+  );
+
+  const packageJsonPath = approvedRoot ? path.join(approvedRoot, "package.json") : "";
+  if (packageJsonPath && normalizeWindowsPath(packageJsonPath).toLowerCase() !== normalizeWindowsPath(targetFile).toLowerCase()) {
+    const packageJson = safeReadFile(packageJsonPath);
+    if (packageJson) {
+      sections.push(buildContextSection("Project package.json", packageJson, 1200));
+    }
+  }
+
+  const globalsCssPath = approvedRoot ? path.join(approvedRoot, "app", "globals.css") : "";
+  if (
+    globalsCssPath &&
+    normalizeWindowsPath(globalsCssPath).toLowerCase() !== normalizeWindowsPath(targetFile).toLowerCase()
+  ) {
+    const globalsCss = safeReadFile(globalsCssPath);
+    if (globalsCss) {
+      sections.push(buildContextSection("app/globals.css", globalsCss, 900));
+    }
+  }
+
+  const siblingTargets = expectedFiles
+    .filter((filePath) => normalizeWindowsPath(filePath).toLowerCase() !== normalizeWindowsPath(targetFile).toLowerCase())
+    .filter((filePath) => shouldIncludeRelatedFile(targetFile, filePath))
+    .slice(0, 4);
+
+  for (const sibling of siblingTargets) {
+    const content = safeReadFile(sibling);
+    sections.push(
+      buildContextSection(
+        `Related file (${sibling})`,
+        content || "[missing file]",
+        900,
+      ),
+    );
+  }
+
+  const fileTree = buildMiniFileTree(approvedRoot || path.dirname(targetFile), expectedFiles);
+  if (fileTree) {
+    sections.push(`Relevant file tree:\n${fileTree}`);
+  }
+
+  return sections.filter(Boolean).join("\n\n");
+}
+
+function buildContextSection(title, content, maxLength) {
+  return `${title}:\n${truncateForLocalExecutor(sanitizeText(content || "").trim() || "[empty]", maxLength)}`;
+}
+
+function shouldIncludeRelatedFile(targetFile, candidateFile) {
+  const targetNormalized = normalizeWindowsPath(targetFile).toLowerCase();
+  const candidateNormalized = normalizeWindowsPath(candidateFile).toLowerCase();
+  const targetDir = path.dirname(targetNormalized);
+  const candidateDir = path.dirname(candidateNormalized);
+
+  if (targetDir === candidateDir) {
+    return true;
+  }
+  if (/\\app\\layout\.tsx$/i.test(targetNormalized) && /\\app\\\(components\)\\.+\.tsx$/i.test(candidateNormalized)) {
+    return true;
+  }
+  if (/\\app\\\(components\)\\.+\.tsx$/i.test(targetNormalized) && /\\app\\layout\.tsx$/i.test(candidateNormalized)) {
+    return true;
+  }
+  return false;
+}
+
+function buildMiniFileTree(root, expectedFiles) {
+  const normalizedRoot = normalizeWindowsPath(root);
+  if (!normalizedRoot) {
+    return "";
+  }
+
+  const entries = uniqueList(
+    expectedFiles
+      .map((filePath) => normalizeWindowsPath(filePath))
+      .filter(Boolean)
+      .map((filePath) => path.relative(normalizedRoot, filePath))
+      .filter((relativePath) => relativePath && !relativePath.startsWith(".."))
+      .map((relativePath) => relativePath.replace(/\\/g, "/")),
+  );
+
+  return entries.length > 0 ? entries.map((entry) => `- ${entry}`).join("\n") : "";
+}
+
+function getFrameworkRulesForTarget(targetFile) {
+  const normalized = normalizeWindowsPath(targetFile).toLowerCase();
+  const basename = path.basename(normalized);
+  const rules = [];
+
+  if (/\\app\\/.test(normalized) && /\.(tsx|ts|jsx|js)$/.test(basename)) {
+    rules.push("This project is a Next.js app using React DOM and the app directory.");
+    rules.push("Do not use react-native imports, components, or APIs.");
+    rules.push("Do not use NextPage in app/ files.");
+  }
+
+  if (/\\app\\layout\.tsx$/.test(normalized)) {
+    rules.push("Use App Router layout semantics: export metadata and render html/body.");
+    rules.push("Do not use next/head inside app/layout.tsx.");
+    rules.push("Import Header and Footer from the actual related file paths shown in the workspace snapshot.");
+  }
+
+  if (/\\app\\\(components\)\\.+\.tsx$/.test(normalized)) {
+    rules.push("Use standard React/Next.js JSX with HTML elements and next/link when navigation is needed.");
+    rules.push("Do not include markdown fences, placeholder commentary, or escaped garbage tokens.");
+  }
+
+  return rules.length > 0 ? rules : ["Match the approved file contract exactly."];
+}
+
+function safeReadFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, "utf8");
+  } catch (error) {
+    return "";
+  }
+}
+
+function getExecutionActorName(model) {
+  const text = sanitizeText(model).trim().toLowerCase();
+  if (!text) {
+    return "Executor";
+  }
+  if (text.includes("claude")) {
+    return "Claude";
+  }
+  if (text.includes("deepseek")) {
+    return "DeepSeek";
+  }
+  if (text.includes("qwen")) {
+    return "Qwen";
+  }
+  return sanitizeText(model).trim();
+}
+
+function runNpmCommand(projectRoot, args) {
+  if (process.platform === "win32") {
+    const cmd = process.env.ComSpec || "cmd.exe";
+    return spawnSync(cmd, ["/d", "/s", "/c", "npm.cmd", ...args], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      timeout: LOCAL_WRITE_TIMEOUT_MS,
+    });
+  }
+
+  return spawnSync("npm", args, {
+    cwd: projectRoot,
+    encoding: "utf8",
+    timeout: LOCAL_WRITE_TIMEOUT_MS,
+  });
+}
+
+function buildLocalWriteOutcome(expectedFiles, verification) {
+  const fileCount = expectedFiles.length;
+  if (verification.ok) {
+    return `Wrote ${fileCount} scaffold files in E:\\Mobiledets and verified with npm install plus npm run build.`;
+  }
+  return `Wrote ${fileCount} scaffold files in E:\\Mobiledets, but verification failed: ${sanitizeText(verification.exactProblem).slice(0, 120)}.`;
+}
+
+function sanitizeFileName(value) {
+  return String(value || "")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "artifact";
 }
 
 function isPathWithinApprovedRoot(candidatePath, approvedRoot) {
@@ -1622,6 +2922,78 @@ function isPlanningOnlyTask(task) {
   return sanitizeText(task.current_prompt_template).trim() === "Project intake / planning prompt";
 }
 
+function isValidCompletedTaskState(task) {
+  if (sanitizeText(task.status).trim() !== STATUS.COMPLETED) {
+    return true;
+  }
+
+  const finalOutcome = sanitizeText(task.body && task.body.final_outcome).trim();
+  if (!finalOutcome) {
+    return false;
+  }
+
+  if (isPlanningOnlyTask(task)) {
+    return true;
+  }
+
+  const history = sanitizeText(task.body && task.body.attempt_history).toLowerCase();
+  return (
+    history.includes("execution completed; running verification.") &&
+    history.includes("verification passed:")
+  );
+}
+
+function repairInvalidCompletedTaskState(task) {
+  const resetState = inferResetStateForInvalidCompletion(task);
+  clearFailureState(task);
+  task.status = resetState.status;
+  task.workflow_stage = resetState.workflowStage;
+  task.approval_gate = resetState.approvalGate;
+  task.sync_status = "Not Synced";
+  task.body.final_outcome = "";
+  appendAttemptHistory(
+    task,
+    `Invalid completed state detected; task reset to ${resetState.workflowStage} because execution and verification evidence were incomplete.`,
+  );
+  log(
+    `Reset invalid completed state for ${task.task_id} to ${resetState.status} / ${resetState.workflowStage}.`,
+    "WARN",
+  );
+}
+
+function inferResetStateForInvalidCompletion(task) {
+  if (sanitizeText(task.body && task.body.qwen_action_plan_for_approval).trim()) {
+    return {
+      status: STATUS.PENDING_REVIEW,
+      workflowStage: STAGE.ACTION_PLAN_APPROVAL,
+      approvalGate: APPROVAL_GATE.ACTION_PLAN,
+    };
+  }
+
+  if (sanitizeText(task.body && task.body.prompt_package_for_approval).trim()) {
+    return {
+      status: STATUS.PENDING_REVIEW,
+      workflowStage: STAGE.PROMPT_APPROVAL,
+      approvalGate: APPROVAL_GATE.PROMPT,
+    };
+  }
+
+  return {
+    status: STATUS.DRAFT,
+    workflowStage: STAGE.TASK_INTAKE,
+    approvalGate: APPROVAL_GATE.PROMPT,
+  };
+}
+
+function isImplementationExecutionTask(task) {
+  const promptTemplate = sanitizeText(task.current_prompt_template || task.body.current_prompt_template).trim();
+  const approvalGate = sanitizeText(task.approval_gate || task.body.approval_gate).trim().toLowerCase();
+  return (
+    !isPlanningOnlyTask(task) &&
+    (promptTemplate === DEFAULT_PROMPT_TEMPLATE || approvalGate === APPROVAL_GATE.ACTION_PLAN)
+  );
+}
+
 function completePlanningOnlyTask(task) {
   clearFailureState(task);
   task.status = STATUS.COMPLETED;
@@ -1785,6 +3157,7 @@ function parseImplementationBacklogFromPlan(planText) {
 
   const items = [];
   let current = null;
+  let implicitNumber = 0;
 
   for (let index = start + 1; index < lines.length; index += 1) {
     const line = sanitizeText(lines[index]).trim();
@@ -1803,6 +3176,14 @@ function parseImplementationBacklogFromPlan(planText) {
         number: Number(match[1]),
         title: match[2].trim(),
       };
+      continue;
+    }
+    if (isImplicitBacklogHeading(lines, index, line)) {
+      implicitNumber += 1;
+      current = {
+        number: implicitNumber,
+        title: line,
+      };
     }
   }
 
@@ -1810,6 +3191,25 @@ function parseImplementationBacklogFromPlan(planText) {
     items.push(current);
   }
   return items;
+}
+
+function isImplicitBacklogHeading(lines, index, line) {
+  if (!line || line.startsWith("-")) {
+    return false;
+  }
+
+  for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+    const next = sanitizeText(lines[cursor]).trim();
+    if (!next) {
+      continue;
+    }
+    if (/^(Verification and review flow|Escalation points|Notes)\b/i.test(next)) {
+      return false;
+    }
+    return /^-\s*(Action|Files|Verify|Verification):/i.test(next);
+  }
+
+  return false;
 }
 
 function buildGeneratedExecutionTaskId(projectName, backlogItemNumber, backlog) {

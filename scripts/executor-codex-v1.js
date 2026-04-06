@@ -30,6 +30,10 @@ async function generateArchitectPlan(task, promptPackageText) {
   }
 
   const openai = new OpenAI({ apiKey: openaiKey });
+  const revisedInstructions = sanitizeText(
+    task.revised_instructions || (task.body && task.body.revised_instructions) || "",
+  ).trim();
+  const repoEvidence = deriveRepoEvidence(task);
   const response = await openai.chat.completions.create({
     model: DEFAULT_CODEX_MODEL,
     messages: [
@@ -41,6 +45,9 @@ async function generateArchitectPlan(task, promptPackageText) {
           "Do not execute code.",
           "Do not write files.",
           "Be direct and concise.",
+          "Operator overrides are mandatory and take precedence over prior artifacts or assumptions.",
+          "If revised instructions or repo evidence identify the framework/stack, do not contradict them.",
+          "If a previous plan assumed the wrong stack, replace it rather than blending the old and new plans.",
           "Return JSON with plan_text and self_reported_risks.",
         ].join(" "),
       },
@@ -49,6 +56,8 @@ async function generateArchitectPlan(task, promptPackageText) {
         content: [
           `Task ID: ${sanitizeText(task.task_id)}`,
           `Task Title: ${sanitizeText(task.title)}`,
+          revisedInstructions ? `Revised Instructions:\n${revisedInstructions}` : "",
+          repoEvidence ? `Repo Evidence:\n${repoEvidence}` : "",
           "",
           "Prompt Package:",
           sanitizeText(promptPackageText),
@@ -77,6 +86,63 @@ async function generateArchitectPlan(task, promptPackageText) {
     self_reported_risks: risks,
     used_fallback: false,
   };
+}
+
+function deriveRepoEvidence(task) {
+  const signalText = [
+    sanitizeText(task.revised_instructions),
+    sanitizeText(task.body && task.body.revised_instructions),
+    sanitizeText(task.operator_notes),
+    sanitizeText(task.body && task.body.operator_notes),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const roots = Array.from(
+    new Set((signalText.match(/[A-Z]:\\[^\s"'\r\n]+/g) || []).map((entry) => normalizeRoot(entry)).filter(Boolean)),
+  );
+
+  const evidence = [];
+  for (const root of roots) {
+    const packageJsonPath = path.join(root, "package.json");
+    const appDir = path.join(root, "app");
+    const pubspecPath = path.join(root, "pubspec.yaml");
+    if (fs.existsSync(packageJsonPath)) {
+      const pkg = safeReadJson(packageJsonPath);
+      if (pkg) {
+        evidence.push(`Project root: ${root}`);
+        evidence.push(`package.json exists: ${packageJsonPath}`);
+        if (pkg.dependencies && pkg.dependencies.next) {
+          evidence.push(`Detected next dependency: ${sanitizeText(pkg.dependencies.next)}`);
+        }
+        if (pkg.dependencies && pkg.dependencies.react) {
+          evidence.push(`Detected react dependency: ${sanitizeText(pkg.dependencies.react)}`);
+        }
+      }
+    }
+    if (fs.existsSync(appDir)) {
+      evidence.push(`App Router directory exists: ${appDir}`);
+    }
+    if (fs.existsSync(pubspecPath)) {
+      evidence.push(`Flutter marker exists: ${pubspecPath}`);
+    }
+  }
+
+  return evidence.join("\n");
+}
+
+function normalizeRoot(filePath) {
+  const normalized = sanitizeText(filePath).trim().replace(/\//g, "\\").replace(/\\+$/, "");
+  const match = normalized.match(/^([A-Z]:\\[^\\]+)(?:\\.*)?$/i);
+  return match ? match[1] : "";
+}
+
+function safeReadJson(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 function buildFallbackPlan(task, promptPackageText) {

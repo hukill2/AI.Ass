@@ -25,6 +25,7 @@ const notion = new Client({
 
 const ROOT = path.resolve(__dirname, "..");
 const QUEUE_DIR = path.join(ROOT, "runtime", "queue");
+const COMPLETED_DIR = path.join(ROOT, "runtime", "completed");
 const rawDbId =
   process.env.NOTION_REVIEWS_DATABASE_ID || process.env.REVIEWS_DATABASE_ID || "";
 const REVIEWS_DB = sanitizeText(rawDbId).trim().replace(/-/g, "");
@@ -66,12 +67,14 @@ async function main() {
       }
 
       const filePath = path.join(QUEUE_DIR, `task-${sanitizeFileName(task.task_id)}.json`);
+      const existingTask = readExistingTask(filePath, task.task_id);
+      const mergedTask = mergeWithLocalCanonicalState(existingTask, task);
       fs.mkdirSync(QUEUE_DIR, { recursive: true });
-      fs.writeFileSync(filePath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+      fs.writeFileSync(filePath, `${JSON.stringify(mergedTask, null, 2)}\n`, "utf8");
       updateNotionSyncState(page.id, lastEdited, fingerprint);
       captured += 1;
       console.log(
-        `[MIRROR] Captured task: ${sanitizeText(task.title)} (${sanitizeText(task.task_id)})`,
+        `[MIRROR] Captured task: ${sanitizeText(mergedTask.title)} (${sanitizeText(mergedTask.task_id)})`,
       );
     }
 
@@ -227,6 +230,121 @@ function buildPageFingerprint(page) {
     getPropValue(props, "Updated At"),
   ];
   return fields.map((value) => sanitizeText(value)).join("|");
+}
+
+function readExistingTask(queuePath, taskId) {
+  const candidates = [
+    queuePath,
+    path.join(COMPLETED_DIR, `task-${sanitizeFileName(taskId)}.json`),
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || !fs.existsSync(candidate)) {
+      continue;
+    }
+    try {
+      return normalizeTask(JSON.parse(fs.readFileSync(candidate, "utf8")));
+    } catch (error) {
+      console.warn("[MIRROR] Failed to read existing task state:", sanitizeText(error.message));
+    }
+  }
+
+  return null;
+}
+
+function mergeWithLocalCanonicalState(existingTask, incomingTask) {
+  if (!existingTask) {
+    return incomingTask;
+  }
+
+  const merged = normalizeTask({
+    ...existingTask,
+    ...incomingTask,
+    metadata: {
+      ...(existingTask.metadata || {}),
+      ...(incomingTask.metadata || {}),
+    },
+  });
+
+  const mirrorBodyFromNotion = shouldMirrorBodyFromNotion(existingTask, incomingTask);
+  merged.body = mirrorBodyFromNotion
+    ? { ...(existingTask.body || createEmptyBody()), ...(incomingTask.body || {}) }
+    : { ...(existingTask.body || createEmptyBody()) };
+
+  if (
+    !incomingTask.artifacts ||
+    Object.keys(incomingTask.artifacts).length === 0
+  ) {
+    merged.artifacts = { ...(existingTask.artifacts || {}) };
+  }
+
+  if (!mirrorBodyFromNotion && sanitizeText(existingTask.body && existingTask.body.final_outcome).trim()) {
+    merged.body.final_outcome = sanitizeText(existingTask.body.final_outcome);
+  }
+
+  merged.operator_notes = incomingTask.operator_notes || existingTask.operator_notes || "";
+  merged.revised_instructions =
+    incomingTask.revised_instructions || existingTask.revised_instructions || "";
+  merged.body.operator_notes = merged.operator_notes;
+  merged.body.revised_instructions = merged.revised_instructions;
+
+  return normalizeTask(merged);
+}
+
+function shouldMirrorBodyFromNotion(existingTask, incomingTask) {
+  if (isExecutionTask(existingTask) || isExecutionTask(incomingTask)) {
+    return false;
+  }
+
+  return hasMeaningfulWorkflowBody(incomingTask.body);
+}
+
+function hasMeaningfulWorkflowBody(body) {
+  if (!body || typeof body !== "object") {
+    return false;
+  }
+
+  const workflowKeys = [
+    "summary",
+    "full_context",
+    "proposed_action",
+    "constraints_guardrails",
+    "machine_task_json",
+    "prompt_template_selection",
+    "prompt_package_for_approval",
+    "librarian_validation_notes",
+    "gpt_plan",
+    "qwen_action_plan_for_approval",
+    "failure_report",
+    "attempt_history",
+    "escalation_notes",
+    "final_outcome",
+  ];
+
+  return workflowKeys.some((key) => sanitizeText(body[key]).trim());
+}
+
+function isExecutionTask(task) {
+  if (!task) {
+    return false;
+  }
+
+  if (task.planning_only === true) {
+    return false;
+  }
+
+  const template = sanitizeText(task.current_prompt_template).trim();
+  if (template === "Project intake / planning prompt") {
+    return false;
+  }
+
+  const trigger = sanitizeText(task.trigger_reason).toLowerCase();
+  const taskId = sanitizeText(task.task_id).toLowerCase();
+  return (
+    sanitizeText(task.approval_gate).trim() === "action_plan" ||
+    taskId.includes("-exec-") ||
+    trigger.includes("approved planning backlog item")
+  );
 }
 
 main().catch((error) => {

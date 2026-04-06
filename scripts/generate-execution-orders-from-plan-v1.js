@@ -126,6 +126,7 @@ function parseImplementationBacklog(planText) {
 
   const items = [];
   let current = null;
+  let implicitNumber = 0;
 
   for (let index = start + 1; index < lines.length; index += 1) {
     const raw = lines[index];
@@ -136,14 +137,26 @@ function parseImplementationBacklog(planText) {
     if (/^(Verification and review flow|Escalation points|Notes)\b/i.test(line)) {
       break;
     }
-    const match = line.match(/^(\d+)\)\s+(.+)$/);
-    if (match) {
+    const numberedMatch = line.match(/^(\d+)[\)\.]\s+(.+)$/);
+    if (numberedMatch) {
       if (current) {
         items.push(finalizeBacklogItem(current));
       }
       current = {
-        number: Number(match[1]),
-        title: match[2].trim(),
+        number: Number(numberedMatch[1]),
+        title: numberedMatch[2].trim(),
+        lines: [],
+      };
+      continue;
+    }
+    if (isImplicitBacklogHeading(lines, index, line)) {
+      if (current) {
+        items.push(finalizeBacklogItem(current));
+      }
+      implicitNumber += 1;
+      current = {
+        number: implicitNumber,
+        title: line,
         lines: [],
       };
       continue;
@@ -158,6 +171,25 @@ function parseImplementationBacklog(planText) {
   }
 
   return items.filter((item) => item.title);
+}
+
+function isImplicitBacklogHeading(lines, index, line) {
+  if (!line || line.startsWith("-")) {
+    return false;
+  }
+
+  for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+    const next = sanitizeText(lines[cursor]).trim();
+    if (!next) {
+      continue;
+    }
+    if (/^(Verification and review flow|Escalation points|Notes)\b/i.test(next)) {
+      return false;
+    }
+    return /^-\s*(Action|Files|Verify|Verification):/i.test(next);
+  }
+
+  return false;
 }
 
 function finalizeBacklogItem(item) {

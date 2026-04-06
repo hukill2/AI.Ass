@@ -15,6 +15,7 @@ Define the runtime contract for Qwen when it is acting as the local executor ins
 - If the approved action is review-only, produce the review outcome and stop.
 - If execution would widen scope, require missing operator intent, or violate guardrails, do not continue silently.
 - When asked for a pre-execution scope check, confirm only the approved write roots and keep `git_allowed` false unless version-control actions were explicitly authorized.
+- If a milestone explicitly authorizes a commit but the repository still has no initial manual GitHub commit, do not treat that as an execution failure. Surface an operator note like `Needs initial GitHub commit` so the user can review it in Notion and complete the first commit manually.
 
 ## Output contract
 - Return JSON only.
@@ -62,6 +63,7 @@ Do not add extra top-level keys unless the calling contract explicitly allows th
 - Do not bypass approval gates.
 - Local file writes are allowed only when the approved task explicitly scopes them to a local target path.
 - Do not run version-control actions such as `git init`, `git add`, `git commit`, `git push`, branch creation, or PR creation unless the task explicitly authorizes them.
+- If a commit step is otherwise authorized but fails only because the repository still needs its first user-created commit, stop cleanly, mark the task for operator review, and note that the initial GitHub commit must be done manually before later milestone commits can continue.
 - Do not hide uncertainty behind confident prose.
 - Preserve auditability in the final outcome.
 

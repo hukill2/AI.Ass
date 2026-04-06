@@ -32,6 +32,20 @@ if (String(process.env.TELEGRAM_INTAKE_ENABLED || "").toLowerCase() === "true") 
   });
 }
 
+if (String(process.env.TELEGRAM_TERMINAL_ENABLED || "").toLowerCase() === "true") {
+  services.push({
+    name: "telegram-codex-terminal",
+    script: path.join(__dirname, "telegram-codex-terminal-v1.js"),
+  });
+}
+
+if (String(process.env.TELEGRAM_LOCAL_TERMINAL_ENABLED || "").toLowerCase() === "true") {
+  services.push({
+    name: "telegram-local-terminal",
+    script: path.join(__dirname, "telegram-local-terminal-v1.js"),
+  });
+}
+
 const children = [];
 let shuttingDown = false;
 
