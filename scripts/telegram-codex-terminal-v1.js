@@ -16,6 +16,7 @@ const {
   queueWriteFile,
   queueReplaceInFile,
   queueRunCommand,
+  queueShellCommand,
   queueGitCommit,
   describePendingPlan,
   executePendingPlan,
@@ -304,6 +305,8 @@ async function handleToolCall(session, toolCall) {
         return queueReplaceInFile(session, args);
       case "request_run_command":
         return queueRunCommand(session, args);
+      case "request_shell_command":
+        return queueShellCommand(session, args);
       case "request_git_commit":
         return queueGitCommit(session, args);
       case "show_pending_plan":
@@ -331,8 +334,9 @@ function buildSystemPrompt(session) {
   return [
     "You are the Codex Telegram terminal for AI Assistant OS.",
     "You can inspect files and run safe read-only commands immediately.",
-    "You can also queue file writes, approved commands, and git commits for explicit operator approval.",
-    "Read-only actions run now. Write actions never run immediately; they must be queued and later executed only after the human replies /approve.",
+    "You can also queue file writes, approved commands, approved PowerShell commands, and git commits for explicit operator approval.",
+    "Read-only actions run now. Write or high-privilege actions never run immediately; they must be queued and later executed only after the human replies /approve.",
+    "Approved actions execute directly through this bot on the same machine. Do not mention any separate desktop runner or external approval runner.",
     "Use the provided tools instead of claiming you edited files or ran commands.",
     "Use absolute Windows paths inside these approved roots only:",
     getAllowedRoots().join(", "),
@@ -467,6 +471,23 @@ function buildTools() {
     {
       type: "function",
       function: {
+        name: "request_shell_command",
+        description:
+          "Queue a PowerShell command for later /approve execution when the user explicitly wants broader machine access than the whitelisted command tool provides.",
+        parameters: {
+          type: "object",
+          properties: {
+            cwd: { type: "string", description: "Absolute working directory inside an approved root." },
+            command: { type: "string", description: "PowerShell command text to run after operator approval." },
+            reason: { type: "string", default: "" },
+          },
+          required: ["cwd", "command"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
         name: "request_git_commit",
         description:
           "Queue a git milestone commit for later /approve execution. Use only when the user explicitly wants a commit.",
@@ -575,7 +596,7 @@ function buildHelpMessage(session) {
     "Codex terminal bot ready.",
     "Modes:",
     "- Phase 1: read-only inspection and safe verification commands auto-run.",
-    "- Phase 2: file edits, approved commands, and milestone commits queue for /approve.",
+    "- Phase 2: file edits, approved commands, approved PowerShell commands, and milestone commits queue for /approve.",
     "",
     "Commands:",
     "/help - show this command list",

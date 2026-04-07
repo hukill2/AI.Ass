@@ -190,7 +190,31 @@ function tailFile({ file_path, lines = 80 }) {
   });
 }
 
-function validateCommand(command, args, mode) {
+function validateNodeScriptArgs(argv, cwd, mode) {
+  const first = (argv[0] || "").trim();
+  if (!first) {
+    throw new Error("node requires a script path or --check.");
+  }
+
+  if (first.toLowerCase() === "--check") {
+    return { command: "node", args: argv };
+  }
+
+  if (mode !== "write") {
+    throw new Error(`node ${argv.join(" ")} is not allowed in auto mode.`);
+  }
+
+  const scriptCandidate = path.isAbsolute(first) ? first : path.resolve(cwd || ROOT, first);
+  const resolvedScript = resolveApprovedPath(scriptCandidate, { mustExist: true });
+  const extension = path.extname(resolvedScript.path).toLowerCase();
+  if (!new Set([".js", ".cjs", ".mjs"]).has(extension)) {
+    throw new Error(`node script extension "${extension || "(none)"}" is not allowed for approved execution.`);
+  }
+
+  return { command: "node", args: argv };
+}
+
+function validateCommand(command, args, mode, cwd) {
   const cmd = sanitizeText(command).trim().toLowerCase();
   const argv = Array.isArray(args) ? args.map((value) => sanitizeText(value).trim()).filter(Boolean) : [];
 
@@ -219,10 +243,7 @@ function validateCommand(command, args, mode) {
       return { command: "npm", args: argv };
     }
     if (cmd === "node") {
-      if ((argv[0] || "").toLowerCase() !== "--check") {
-        throw new Error(`node ${argv.join(" ")} is not allowed in auto mode.`);
-      }
-      return { command: "node", args: argv };
+      return validateNodeScriptArgs(argv, cwd, mode);
     }
   }
 
@@ -249,10 +270,7 @@ function validateCommand(command, args, mode) {
       return { command: "git", args: argv };
     }
     if (cmd === "node") {
-      if ((argv[0] || "").toLowerCase() !== "--check") {
-        throw new Error(`node ${argv.join(" ")} is not allowed for approved execution.`);
-      }
-      return { command: "node", args: argv };
+      return validateNodeScriptArgs(argv, cwd, mode);
     }
   }
 
@@ -266,7 +284,7 @@ function executeCommand({ cwd, command, args = [], mode = "read" }) {
     throw new Error(`cwd is not a directory: ${resolvedCwd.path}`);
   }
 
-  const validated = validateCommand(command, args, mode);
+  const validated = validateCommand(command, args, mode, resolvedCwd.path);
   const result = runProcess(validated.command, validated.args, resolvedCwd.path);
   return {
     cwd: resolvedCwd.path,
@@ -356,7 +374,7 @@ function queueReplaceInFile(session, { file_path, old_text, new_text, replace_al
 
 function queueRunCommand(session, { cwd, command, args = [], reason = "" }) {
   const resolvedCwd = resolveApprovedPath(cwd || ROOT, { mustExist: true });
-  const validated = validateCommand(command, args, "write");
+  const validated = validateCommand(command, args, "write", resolvedCwd.path);
   const pending = queueAction(session, {
     type: "run_command",
     cwd: resolvedCwd.path,
@@ -369,6 +387,28 @@ function queueRunCommand(session, { cwd, command, args = [], reason = "" }) {
     action_count: pending.actions.length,
     cwd: resolvedCwd.path,
     command: `${validated.command} ${validated.args.join(" ")}`.trim(),
+  };
+}
+
+function queueShellCommand(session, { cwd, command, reason = "" }) {
+  const resolvedCwd = resolveApprovedPath(cwd || ROOT, { mustExist: true });
+  const commandText = sanitizeText(command).trim();
+  const reasonText = sanitizeText(reason).trim();
+  if (!commandText) {
+    throw new Error("Shell command is required.");
+  }
+  const pending = queueAction(session, {
+    type: "shell_command",
+    cwd: resolvedCwd.path,
+    command: commandText,
+    reason: reasonText,
+    preview: buildShellCommandPreview(resolvedCwd.path, commandText, reasonText),
+  });
+  return {
+    pending_id: pending.id,
+    action_count: pending.actions.length,
+    cwd: resolvedCwd.path,
+    command: commandText,
   };
 }
 
@@ -415,6 +455,9 @@ function describePendingPlan(plan) {
   lines.push("Actions:");
   plan.actions.forEach((action, index) => {
     lines.push(`${index + 1}. ${describeAction(action)}`);
+    if (action.type === "shell_command" && action.preview) {
+      lines.push(indentBlock(action.preview, "   preview: "));
+    }
   });
   lines.push("Reply /approve to execute or /reject to clear.");
   return lines.join("\n");
@@ -428,6 +471,10 @@ function describeAction(action) {
       return `edit ${action.file_path}`;
     case "run_command":
       return `run ${action.command} ${Array.isArray(action.args) ? action.args.join(" ") : ""}`.trim();
+    case "shell_command":
+      return [`shell in ${action.cwd}`, `command: ${action.command}`, action.reason ? `reason: ${action.reason}` : ""]
+        .filter(Boolean)
+        .join(" | ");
     case "git_commit":
       return `git commit in ${action.cwd} with message "${action.message}"`;
     default:
@@ -498,11 +545,52 @@ function executeApprovedAction(action) {
         args: action.args,
         mode: "write",
       });
+    case "shell_command":
+      return executeShellCommand(action);
     case "git_commit":
       return executeGitCommit(action);
     default:
       throw new Error(`Unknown approved action type: ${action.type}`);
   }
+}
+
+function executeShellCommand(action) {
+  const cwd = resolveApprovedPath(action.cwd || ROOT, { mustExist: true }).path;
+  const commandText = sanitizeText(action.command).trim();
+  if (!commandText) {
+    throw new Error("Approved shell command is empty.");
+  }
+
+  const result = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-Command", commandText],
+    {
+      cwd,
+      encoding: "utf8",
+      timeout: COMMAND_TIMEOUT_MS,
+      windowsHide: true,
+    },
+  );
+
+  return {
+    ok: result.status === 0 && !result.error,
+    cwd,
+    command: commandText,
+    exit_code: Number.isFinite(result.status) ? result.status : 1,
+    stdout: truncateOutput(result.stdout),
+    stderr: truncateOutput(result.stderr),
+    error: result.error ? sanitizeText(result.error.message) : "",
+  };
+}
+
+function buildShellCommandPreview(cwd, commandText, reasonText) {
+  return [
+    `cwd: ${cwd}`,
+    `command: ${commandText}`,
+    reasonText ? `reason: ${reasonText}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function executeWriteFile(action) {
@@ -612,6 +700,19 @@ function formatExecutionSummary(plan, results) {
       }
       return;
     }
+    if (entry.action.type === "shell_command") {
+      lines.push(`${index + 1}. Ran PowerShell in ${result.cwd} (exit ${result.exit_code})`);
+      if (result.stdout) {
+        lines.push(indentBlock(result.stdout, "   stdout: "));
+      }
+      if (result.stderr) {
+        lines.push(indentBlock(result.stderr, "   stderr: "));
+      }
+      if (result.error) {
+        lines.push(`   error: ${result.error}`);
+      }
+      return;
+    }
     if (entry.action.type === "git_commit") {
       lines.push(`${index + 1}. Git commit result in ${result.cwd}`);
       if (result.reason) {
@@ -653,6 +754,7 @@ module.exports = {
   queueWriteFile,
   queueReplaceInFile,
   queueRunCommand,
+  queueShellCommand,
   queueGitCommit,
   describePendingPlan,
   executePendingPlan,
